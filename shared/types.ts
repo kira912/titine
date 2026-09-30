@@ -1,0 +1,65 @@
+import type { Fuel } from './fuel'
+
+/** Dates au format ISO court `AAAA-MM-JJ` */
+export type IsoDate = string
+
+export interface Vehicle {
+  id?: number
+  make: string
+  model: string
+  fuel: Fuel
+  odometer: number
+  /** Première mise en circulation, sert à calculer le premier contrôle technique */
+  firstRegistration: IsoDate | null
+}
+
+export interface FillUp {
+  id?: number
+  vehicleId: number
+  date: IsoDate
+  odometer: number
+  liters: number
+  totalPrice: number
+  /** Plein complet : seul un plein complet permet de calculer une consommation */
+  full: boolean
+}
+
+export type ReminderKind = 'vidange' | 'pneus' | 'controle-technique' | 'autre'
+
+export interface Reminder {
+  id?: number
+  vehicleId: number
+  kind: ReminderKind
+  label: string
+  intervalKm: number | null
+  intervalMonths: number | null
+  /** Dernière réalisation (ou point de départ du suivi) */
+  lastDate: IsoDate | null
+  lastOdometer: number | null
+  /** Échéance imposée tant que l'entretien n'a jamais été fait (premier contrôle technique) */
+  firstDueDate: IsoDate | null
+}
+
+export interface Service {
+  id?: number
+  vehicleId: number
+  reminderId: number | null
+  label: string
+  date: IsoDate
+  odometer: number
+  cost: number | null
+}
+
+/** Station renvoyée par `/api/stations`, du moins cher au plus cher */
+export interface NearbyStation {
+  id: number
+  lat: number
+  lon: number
+  address: string
+  city: string
+  postalCode: string
+  alwaysOpen: boolean
+  price: number
+  updatedAt: string
+  distanceKm: number
+}

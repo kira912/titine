@@ -1,0 +1,176 @@
+:root {
+  --bg: #f8fafc;
+  --surface: #ffffff;
+  --text: #0f172a;
+  --muted: #64748b;
+  --border: #e2e8f0;
+  --accent: #1d4ed8;
+  --accent-contrast: #ffffff;
+  --accent-soft: #eff6ff;
+  --danger: #b91c1c;
+  --danger-bg: #fef2f2;
+  --warn: #b45309;
+  --warn-bg: #fffbeb;
+  --ok: #047857;
+  --ok-bg: #ecfdf5;
+  --radius: 14px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0b1120;
+    --surface: #111827;
+    --text: #e5e7eb;
+    --muted: #94a3b8;
+    --border: #1f2937;
+    --accent: #60a5fa;
+    --accent-contrast: #0b1120;
+    --accent-soft: #172554;
+    --danger: #fca5a5;
+    --danger-bg: #2a1215;
+    --warn: #fbbf24;
+    --warn-bg: #2a1f0a;
+    --ok: #6ee7b7;
+    --ok-bg: #062a22;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: inherit; }
+img { display: block; max-width: 100%; }
+h1, h2 { line-height: 1.2; margin: 0 0 .5rem; }
+h1 { font-size: 1.6rem; }
+h2 { font-size: 1.1rem; }
+p { margin: 0 0 .75rem; }
+
+.muted { color: var(--muted); }
+.small { font-size: .875rem; }
+/* minmax(0, 1fr) : un contenu large (tableau, graphique) défile dans son cadre au lieu d'élargir la page */
+.stack { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+.row { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+
+.topbar {
+  display: flex;
+  align-items: center;
+  padding: calc(env(safe-area-inset-top) + .75rem) 16px .75rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.brand { display: flex; align-items: center; gap: .5rem; font-weight: 700; font-size: 1.15rem; text-decoration: none; }
+
+.container { max-width: 760px; margin: 0 auto; padding: 1.5rem 16px calc(6rem + env(safe-area-inset-bottom)); }
+
+.tabbar {
+  position: fixed;
+  inset: auto 0 0;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding-bottom: env(safe-area-inset-bottom);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.tab {
+  display: grid;
+  justify-items: center;
+  gap: .1rem;
+  min-height: 56px;
+  padding: .45rem 0;
+  color: var(--muted);
+  font-size: .75rem;
+  text-decoration: none;
+}
+.tab span { font-size: 1.25rem; line-height: 1; }
+.tab.router-link-exact-active { color: var(--accent); font-weight: 600; }
+
+.card {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+}
+.card-overdue { border-color: var(--danger); }
+.card-soon { border-color: var(--warn); }
+.callout { background: var(--accent-soft); border-color: transparent; }
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 1.1rem;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-primary { background: var(--accent); color: var(--accent-contrast); }
+.btn-ghost { background: transparent; border-color: var(--border); color: var(--text); }
+.btn-danger { background: transparent; border-color: var(--border); color: var(--danger); }
+.btn-block { width: 100%; }
+.btn-small { min-height: 36px; padding: 0 .8rem; font-size: .875rem; }
+
+.form { display: grid; gap: .9rem; }
+.field { display: grid; gap: .3rem; font-size: .875rem; font-weight: 600; }
+.field input, .field select {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 .8rem;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+  font: inherit;
+  font-weight: 400;
+}
+.field-inline { display: flex; align-items: center; gap: .5rem; font-weight: 400; }
+.field-inline input { width: 20px; min-height: 20px; }
+.fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .9rem; }
+.error { color: var(--danger); }
+
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: .75rem; }
+.stat-value { font-size: 1.6rem; font-weight: 700; line-height: 1.2; }
+
+.badge { display: inline-block; vertical-align: middle; padding: .1rem .6rem; border-radius: 999px; font-size: .75rem; font-weight: 600; }
+.badge-overdue { background: var(--danger-bg); color: var(--danger); }
+.badge-soon { background: var(--warn-bg); color: var(--warn); }
+.badge-ok { background: var(--ok-bg); color: var(--ok); }
+
+.list { display: grid; gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.list-item { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .75rem 0; border-bottom: 1px solid var(--border); }
+.list-item:last-child { border-bottom: 0; }
+.price { font-size: 1.25rem; font-weight: 700; white-space: nowrap; }
+
+.chart { width: 100%; height: auto; }
+.chart-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.chart-dot { fill: var(--accent); }
+.chart-grid { stroke: var(--border); stroke-width: 1; }
+.chart-label { fill: var(--muted); font-size: 10px; }
+
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+th, td { padding: .55rem .6rem; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+th:first-child, td:first-child { text-align: left; white-space: normal; min-width: 180px; }
+.best { color: var(--ok); font-weight: 700; }
+
+.city-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: .4rem 1rem; margin: 0; padding: 0; list-style: none; }
+
+/* Accueil public : rendu côté serveur pour les moteurs, masqué d'emblée si ce navigateur a déjà un véhicule */
+.has-garage .landing { display: none; }
+.features { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: .75rem; }
+.features h2 { font-size: 1rem; }
+.features p { margin: 0; color: var(--muted); font-size: .9rem; }
+.lead { font-size: 1.05rem; color: var(--muted); }
