@@ -75,7 +75,7 @@ Les migrations sont appliquées à la première requête. Après une modificatio
 Le preset Vercel de Nitro est choisi automatiquement au build sur Vercel ; `vercel.json` impose `pnpm vercel-build`, qui applique les migrations (`drizzle-kit migrate`) puis construit l'appli.
 
 1. **Dépôt** : pousser le projet sur GitHub, puis *Add New → Project* sur Vercel et importer le dépôt (framework Nuxt détecté, rien à changer).
-2. **Base de données** : onglet *Storage* du projet → *Neon* (Postgres serverless, offre gratuite), relié aux environnements Production et Preview. L'intégration pose `DATABASE_URL` (connexion via le pooler, utilisée par l'appli) et `DATABASE_URL_UNPOOLED` (connexion directe, utilisée par les migrations).
+2. **Base de données** : onglet *Storage* du projet → *Neon* (Postgres serverless, offre gratuite), relié aux environnements Production et Preview. L'intégration pose `DATABASE_URL` (connexion via le pooler, utilisée par l'appli) et une connexion directe utilisée par les migrations (`POSTGRES_URL_NON_POOLING` ou `DATABASE_URL_UNPOOLED` selon la version). **Relier Neon avant le premier déploiement** : sans base, le build échoue à l'étape des migrations.
 3. **Variables d'environnement** :
    - `CRON_SECRET` : une valeur aléatoire (`openssl rand -hex 32`). Vercel l'envoie lui-même à ses crons.
    - `NUXT_PUBLIC_SITE_URL` : uniquement avec un domaine personnalisé (ex. `https://titine.fr`). Par défaut, le domaine de production Vercel du projet est utilisé. **Redéployer après l'avoir changé** : la valeur est figée au build dans les pages mises en cache.
@@ -84,6 +84,8 @@ Le preset Vercel de Nitro est choisi automatiquement au build sur Vercel ; `verc
 5. **Import toutes les 30 minutes** : dans le dépôt GitHub, *Settings → Secrets and variables → Actions*, créer `SITE_URL` (URL de production) et `CRON_SECRET` (même valeur que sur Vercel). Le workflow `.github/workflows/fuel-ingest.yml` appelle alors la route d'import toutes les 30 minutes.
 
 Points à connaître :
+
+- **Web Analytics** : module `@vercel/analytics` (sans cookie). À activer dans l'onglet *Analytics* du projet Vercel ; les pages vues remontent ensuite automatiquement, navigation côté client comprise.
 
 - **Crons Vercel** : déclarés dans `nuxt.config.ts` (`nitro.vercel.config.crons`), un par jour à 5 h UTC, car le plan Hobby n'en autorise pas plus (un cron plus fréquent fait échouer le déploiement). En plan Pro : passer le cron à `*/30 * * * *` et supprimer le workflow GitHub. Sur GitHub, les crons planifiés peuvent prendre quelques minutes de retard et sont suspendus après 60 jours sans activité sur un dépôt public.
 - **Cache** : l'accueil et `/carburant` sont mis en cache 1 h sur le CDN de Vercel (ISR), les pages de prix 30 minutes.

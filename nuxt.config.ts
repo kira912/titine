@@ -11,7 +11,8 @@ const VERCEL_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL
 export default defineNuxtConfig({
   compatibilityDate: '2026-09-01',
   devtools: { enabled: false },
-  modules: ['@vite-pwa/nuxt'],
+  // Vercel Web Analytics : sans cookie, actif seulement une fois activé dans le tableau de bord Vercel
+  modules: ['@vite-pwa/nuxt', '@vercel/analytics'],
   css: ['~/assets/main.css'],
 
   app: {
