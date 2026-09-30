@@ -5,12 +5,14 @@
   "scripts": {
     "dev": "nuxt dev",
     "build": "nuxt build",
+    "vercel-build": "drizzle-kit migrate && nuxt build",
     "preview": "nuxt preview",
     "postinstall": "nuxt prepare",
     "typecheck": "nuxt typecheck",
     "test": "vitest run",
     "db:up": "docker compose up -d",
     "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
     "ingest": "nuxt task run fuel:ingest",
     "icons": "node scripts/icons.mjs"
   },
@@ -30,5 +32,9 @@
     "typescript": "5.9.3",
     "vitest": "^5.0.2",
     "vue-tsc": "^3.3.11"
-  }
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@11.25.0"
 }

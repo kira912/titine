@@ -5,6 +5,9 @@ import { APP } from './shared/app'
 const PRIVATE_ROUTES = ['/plein', '/entretien', '/vehicule']
 const NOINDEX = { 'x-robots-tag': 'noindex, nofollow' }
 
+// Sur Vercel, le domaine de production est connu au build : il sert d'origine publique par défaut
+const VERCEL_URL = process.env.VERCEL_PROJECT_PRODUCTION_URL
+
 export default defineNuxtConfig({
   compatibilityDate: '2026-09-01',
   devtools: { enabled: false },
@@ -28,12 +31,14 @@ export default defineNuxtConfig({
   },
 
   runtimeConfig: {
-    // Surchargeables via NUXT_DATABASE_URL / NUXT_MIGRATIONS_DIR
-    databaseUrl: 'postgres://titine:titine@localhost:5435/titine',
+    // NUXT_DATABASE_URL ; à défaut DATABASE_URL / POSTGRES_URL (Neon via Vercel), puis le Postgres Docker local
+    databaseUrl: '',
+    // NUXT_CRON_SECRET (ou CRON_SECRET, que Vercel envoie à ses crons) : protège /api/cron/*
+    cronSecret: '',
     migrationsDir: './server/database/migrations',
     public: {
       // NUXT_PUBLIC_SITE_URL : origine publique, pour les URL canoniques et le sitemap
-      siteUrl: 'http://localhost:3000',
+      siteUrl: VERCEL_URL ? `https://${VERCEL_URL}` : 'http://localhost:3000',
       // Fond de carte vectoriel OpenFreeMap (sans clé ni quota), le plus proche de Google Maps.
       // NUXT_PUBLIC_MAP_STYLE : autre style compatible MapLibre (…/styles/bright, …/styles/positron)
       mapStyle: 'https://tiles.openfreemap.org/styles/liberty',
@@ -42,19 +47,21 @@ export default defineNuxtConfig({
 
   routeRules: {
     ...Object.fromEntries(PRIVATE_ROUTES.map(route => [route, { ssr: false, headers: NOINDEX }])),
-    '/200.html': { headers: NOINDEX },
-    '/200': { proxy: '/200.html', headers: NOINDEX },
+    // Coquille SPA pour le hors ligne : pré-générée sans SSR dans 200/index.html, donc servie
+    // statiquement à l'adresse « /200 » sous laquelle le service worker la précache (Node comme Vercel)
+    '/200': { ssr: false, prerender: true, headers: NOINDEX },
   },
 
   // Cache de rendu en production uniquement : en dev, les pages reflètent toujours le code
   $production: {
     routeRules: {
-      // Pages publiques sans données serveur ; la canonique suit NUXT_PUBLIC_SITE_URL au runtime
-      '/': { swr: 3600 },
-      '/carburant': { swr: 3600 },
+      // `swr` : cache de Nitro (serveur Node) ; `isr` : même durée sur le CDN de Vercel
+      // Pages publiques sans données serveur
+      '/': { swr: 3600, isr: 3600 },
+      '/carburant': { swr: 3600, isr: 3600 },
       // Pages SEO : gardées en cache le temps d'un cycle d'import
-      '/prix-carburant': { swr: 1800 },
-      '/prix-carburant/**': { swr: 1800 },
+      '/prix-carburant': { swr: 1800, isr: 1800 },
+      '/prix-carburant/**': { swr: 1800, isr: 1800 },
     },
   },
 
@@ -65,11 +72,20 @@ export default defineNuxtConfig({
 
   nitro: {
     experimental: { tasks: true },
+    // Serveur Node uniquement : sur Vercel, ce sont les crons (vercel.json) qui appellent /api/cron/fuel-ingest
     scheduledTasks: {
       '*/30 * * * *': ['fuel:ingest'],
     },
-    // Coquille SPA (générée sans SSR par Nuxt), précachée par le service worker pour l'usage hors ligne
-    prerender: { routes: ['/200.html'] },
+    vercel: {
+      // L'import du flux (téléchargement + ~40 000 lignes en base) dépasse la durée par défaut
+      functions: { maxDuration: 120 },
+      config: {
+        // Plan Hobby : un cron par jour au plus (sinon le déploiement échoue). Le workflow GitHub
+        // .github/workflows/fuel-ingest.yml assure les imports toutes les 30 minutes.
+        // En plan Pro : passer à '*/30 * * * *' et supprimer le workflow.
+        crons: [{ path: '/api/cron/fuel-ingest', schedule: '0 5 * * *' }],
+      },
+    },
   },
 
   pwa: {
@@ -94,7 +110,7 @@ export default defineNuxtConfig({
     },
     workbox: {
       globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2}'],
-      // Le module réécrit « 200.html » en « 200 » dans le précache
+      // Coquille SPA (routeRules « /200 »), précachée sous cette adresse
       navigateFallback: '/200',
       // Les pages SEO et l'API passent toujours par le réseau
       navigateFallbackDenylist: [/^\/api\//, /^\/prix-carburant/, /^\/sitemap\.xml$/, /^\/robots\.txt$/],

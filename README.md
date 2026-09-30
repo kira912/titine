@@ -27,7 +27,7 @@ pnpm typecheck
 pnpm build && node .output/server/index.mjs
 ```
 
-Variables (voir `.env.example`) : `NUXT_DATABASE_URL`, `NUXT_PUBLIC_SITE_URL` (origine publique, pour les URL canoniques et le sitemap), `NUXT_MIGRATIONS_DIR`.
+Variables (voir `.env.example`) : `NUXT_DATABASE_URL` (à défaut `DATABASE_URL` / `POSTGRES_URL`, puis le Postgres Docker local), `NUXT_PUBLIC_SITE_URL` (origine publique, pour les URL canoniques et le sitemap), `CRON_SECRET`, `NUXT_MIGRATIONS_DIR`.
 Les migrations sont appliquées à la première requête. Après une modification de `server/database/schema.ts` : `pnpm db:generate`.
 
 ## Organisation
@@ -40,7 +40,8 @@ Les migrations sont appliquées à la première requête. Après une modificatio
 ## Prix des carburants
 
 - La tâche Nitro `fuel:ingest` télécharge le [flux instantané](https://data.economie.gouv.fr/explore/dataset/prix-des-carburants-en-france-flux-instantane-v2/) (environ 9 800 stations) et remplace le relevé dans une seule transaction. Un flux tronqué (moins de 5 000 stations) est rejeté et l'ancien relevé est conservé.
-- Planification : toutes les 30 minutes. Le serveur doit tourner en continu (process Node, pas de serverless). À la main : `pnpm ingest` ou `curl -X POST localhost:3000/_nitro/tasks/fuel:ingest`.
+- Planification : toutes les 30 minutes par le planificateur de Nitro sur un serveur Node ; sur Vercel, par les crons et GitHub Actions (voir « Déploiement sur Vercel »). À la main en dev : `pnpm ingest` ou `curl -X POST localhost:3000/_nitro/tasks/fuel:ingest`.
+- `GET /api/cron/fuel-ingest` lance l'import en production, protégé par `Authorization: Bearer $CRON_SECRET` (401 sans le bon jeton, 503 si `CRON_SECRET` n'est pas défini).
 - `GET /api/stations?lat=…&lon=…&fuel=gazole&radius=10` : les 30 stations les moins chères dans le rayon (50 km maximum). Les prix relevés il y a plus de 30 jours sont écartés.
 - Les pages ville sont mises en cache 30 minutes (`swr`). Les communes homonymes sont distinguées par le département dans l'URL (`saint-denis-93`, `saint-denis-974`).
 
@@ -68,3 +69,26 @@ Les migrations sont appliquées à la première requête. Après une modificatio
 - L'accueil pousse à l'installation. Sur iPhone c'est plus qu'un confort : Safari peut effacer les données d'un site non installé après une semaine sans visite.
 - Les rappels sont visibles à l'ouverture de l'appli ; il n'y a pas de notification push. En envoyer demanderait de confier les échéances au serveur, ce que le MVP évite.
 - Icônes : modifier les SVG de `public/` puis `pnpm icons` (ImageMagick).
+
+## Déploiement sur Vercel
+
+Le preset Vercel de Nitro est choisi automatiquement au build sur Vercel ; `vercel.json` impose `pnpm vercel-build`, qui applique les migrations (`drizzle-kit migrate`) puis construit l'appli.
+
+1. **Dépôt** : pousser le projet sur GitHub, puis *Add New → Project* sur Vercel et importer le dépôt (framework Nuxt détecté, rien à changer).
+2. **Base de données** : onglet *Storage* du projet → *Neon* (Postgres serverless, offre gratuite), relié aux environnements Production et Preview. L'intégration pose `DATABASE_URL` (connexion via le pooler, utilisée par l'appli) et `DATABASE_URL_UNPOOLED` (connexion directe, utilisée par les migrations).
+3. **Variables d'environnement** :
+   - `CRON_SECRET` : une valeur aléatoire (`openssl rand -hex 32`). Vercel l'envoie lui-même à ses crons.
+   - `NUXT_PUBLIC_SITE_URL` : uniquement avec un domaine personnalisé (ex. `https://titine.fr`). Par défaut, le domaine de production Vercel du projet est utilisé. **Redéployer après l'avoir changé** : la valeur est figée au build dans les pages mises en cache.
+   - Facultatif : `ENABLE_EXPERIMENTAL_COREPACK=1` pour que Vercel utilise exactement le pnpm déclaré dans `packageManager`.
+4. **Déployer**. Au premier déploiement, la base est vide : lancer un premier import (bouton *Run workflow* du workflow GitHub ci-dessous, ou `curl -H "Authorization: Bearer $CRON_SECRET" https://<domaine>/api/cron/fuel-ingest`).
+5. **Import toutes les 30 minutes** : dans le dépôt GitHub, *Settings → Secrets and variables → Actions*, créer `SITE_URL` (URL de production) et `CRON_SECRET` (même valeur que sur Vercel). Le workflow `.github/workflows/fuel-ingest.yml` appelle alors la route d'import toutes les 30 minutes.
+
+Points à connaître :
+
+- **Crons Vercel** : déclarés dans `nuxt.config.ts` (`nitro.vercel.config.crons`), un par jour à 5 h UTC, car le plan Hobby n'en autorise pas plus (un cron plus fréquent fait échouer le déploiement). En plan Pro : passer le cron à `*/30 * * * *` et supprimer le workflow GitHub. Sur GitHub, les crons planifiés peuvent prendre quelques minutes de retard et sont suspendus après 60 jours sans activité sur un dépôt public.
+- **Cache** : l'accueil et `/carburant` sont mis en cache 1 h sur le CDN de Vercel (ISR), les pages de prix 30 minutes.
+- **Durée des fonctions** : 120 s au maximum (`nitro.vercel.functions`), pour laisser de la marge à l'import (quelques secondes en pratique).
+- **Déploiements de prévisualisation** : ils partagent la base de production si Neon y est relié, et appliquent donc aussi les migrations. Pour isoler les essais, activer les branches de prévisualisation de Neon. Vercel ajoute lui-même un en-tête `noindex` aux URL de prévisualisation.
+- **Migrations** : générées localement (`pnpm db:generate`) et commitées ; elles sont appliquées au build sur Vercel, au premier accès à la base sur un serveur Node.
+- **Autres hébergeurs** : `pnpm build && node .output/server/index.mjs` produit un serveur Node autonome, avec import planifié intégré (process à garder en continu).
+

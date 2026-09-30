@@ -14,8 +14,8 @@ export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const lat = coordinate(query.lat, 90)
   const lon = coordinate(query.lon, 180)
-  if (lat === null || lon === null) throw createError({ statusCode: 400, statusMessage: 'Position invalide' })
-  if (!isFuel(query.fuel)) throw createError({ statusCode: 400, statusMessage: 'Carburant inconnu' })
+  if (lat === null || lon === null) throw createError({ statusCode: 400, message: 'Position invalide' })
+  if (!isFuel(query.fuel)) throw createError({ statusCode: 400, message: 'Carburant inconnu' })
 
   const radius = Number(query.radius)
   const radiusKm = Number.isFinite(radius) && radius > 0 ? Math.min(radius, MAX_RADIUS_KM) : DEFAULT_RADIUS_KM
