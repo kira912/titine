@@ -1,6 +1,6 @@
 import { today } from '#shared/dates'
 import { defaultReminders, firstInspectionDate } from '#shared/reminders'
-import type { FillUp, IsoDate, Reminder, Vehicle } from '#shared/types'
+import type { FillUp, FillUpDraft, IsoDate, Reminder, Vehicle } from '#shared/types'
 
 type VehicleInput = Omit<Vehicle, 'id'>
 type FillUpInput = Omit<FillUp, 'id' | 'vehicleId'>
@@ -31,12 +31,29 @@ export function updateVehicle(id: number, input: VehicleInput) {
   })
 }
 
+/** Enregistre le plein ; le brouillon dont il est issu disparaît avec */
 export function addFillUp(vehicle: Saved<Vehicle>, input: FillUpInput) {
   const db = useLocalDb()
-  return db.transaction('rw', db.vehicles, db.fillUps, async () => {
+  return db.transaction('rw', db.vehicles, db.fillUps, db.drafts, async () => {
     await db.fillUps.add({ ...input, vehicleId: vehicle.id, createdAt: new Date().toISOString() })
+    await db.drafts.where('vehicleId').equals(vehicle.id).delete()
     await bumpOdometer(vehicle, input.odometer)
   })
+}
+
+type DraftInput = Omit<FillUpDraft, 'id' | 'vehicleId' | 'createdAt'>
+
+/** Met un plein de côté pour le compléter plus tard ; remplace le brouillon précédent du véhicule */
+export function saveDraft(vehicle: Saved<Vehicle>, input: DraftInput, createdAt = new Date().toISOString()) {
+  const db = useLocalDb()
+  return db.transaction('rw', db.drafts, async () => {
+    await db.drafts.where('vehicleId').equals(vehicle.id).delete()
+    await db.drafts.add({ ...input, vehicleId: vehicle.id, createdAt })
+  })
+}
+
+export function deleteDraft(vehicle: Saved<Vehicle>) {
+  return useLocalDb().drafts.where('vehicleId').equals(vehicle.id).delete()
 }
 
 export function deleteFillUp(id: number) {

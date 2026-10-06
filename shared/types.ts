@@ -114,3 +114,23 @@ export interface StationDetail {
   reports: ReportCounts
   localAverage: number | null
 }
+
+/** Plein commencé à la pompe et complété plus tard (un au plus par véhicule) */
+export interface FillUpDraft {
+  id?: number
+  vehicleId: number
+  /** Moment où le plein a été mis de côté (ISO) */
+  createdAt: string
+  date: IsoDate
+  /** Station et prix relevés à la pompe */
+  station: StationDetail | null
+  /** Jour du relevé de prix, auquel le plein est comparé */
+  stationDay: IsoDate | null
+  /** Saisies telles que tapées, pour reprendre le formulaire à l'identique */
+  liters: string
+  totalPrice: string
+  odometer: string
+  full: boolean
+  /** Champs tapés à la main (les autres ont été calculés) */
+  edited: { liters: boolean, totalPrice: boolean }
+}

@@ -1,7 +1,7 @@
 import { achievements } from '#shared/achievements'
 import { today } from '#shared/dates'
 import { reminderStatus, type ReminderLevel } from '#shared/reminders'
-import type { FillUp, Reminder, Service, Vehicle } from '#shared/types'
+import type { FillUp, FillUpDraft, Reminder, Service, Vehicle } from '#shared/types'
 
 /**
  * Mémorise qu'un véhicule existe, pour masquer l'accueil public dès le premier rendu
@@ -39,6 +39,11 @@ export function useVehicle() {
 
 export function useFillUps() {
   return useLiveQuery<Saved<FillUp>[]>(() => useLocalDb().fillUps.orderBy('odometer').toArray(), []).data
+}
+
+/** Plein mis de côté à la pompe, à compléter (un au plus) */
+export function useDraft() {
+  return useLiveQuery<Saved<FillUpDraft> | null>(async () => (await useLocalDb().drafts.toCollection().first()) ?? null, null)
 }
 
 export function useReminders() {

@@ -33,6 +33,7 @@ const { vehicle, ready } = useVehicle()
 // on lit donc le drapeau directement pour ne pas afficher l'accueil public avant le tableau de bord
 const skipLanding = import.meta.client && !useNuxtApp().payload.serverRendered && hasGarageFlag()
 const fillUps = useFillUps()
+const { data: draft } = useDraft()
 const statuses = useReminderStatuses(vehicle)
 
 const segments = computed(() => consumptionSegments(fillUps.value))
@@ -122,7 +123,16 @@ const yearSavings = computed(() => savingsSummary(fillUps.value, `${today().slic
       </NuxtLink>
     </section>
 
-    <NuxtLink to="/plein" class="btn btn-primary btn-block">
+    <NuxtLink v-if="draft" to="/plein" class="card card-soon" style="text-decoration: none">
+      <div class="row">
+        <strong>⏸️ Plein à compléter</strong>
+        <span class="btn btn-small btn-primary">Compléter</span>
+      </div>
+      <span class="muted small">
+        {{ draft.station ? formatStation(draft.station) : 'Station non choisie' }} · commencé {{ formatSince(draft.createdAt) }}
+      </span>
+    </NuxtLink>
+    <NuxtLink v-else to="/plein" class="btn btn-primary btn-block">
       ⛽ Ajouter un plein
     </NuxtLink>
 

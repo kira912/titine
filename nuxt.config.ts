@@ -108,6 +108,11 @@ export default defineNuxtConfig({
         { src: '/icon-512.png', sizes: '512x512', type: 'image/png' },
         { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
       ],
+      // Appui long sur l'icône de l'appli installée : droit au formulaire, depuis la pompe
+      shortcuts: [
+        { name: 'Ajouter un plein', short_name: 'Plein', url: '/plein', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
+        { name: 'Carburant le moins cher', short_name: 'Carburant', url: '/carburant', icons: [{ src: '/icon-192.png', sizes: '192x192', type: 'image/png' }] },
+      ],
     },
     workbox: {
       globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2}'],
