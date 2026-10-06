@@ -96,3 +96,13 @@ export function parseFeedRecord(record: Record<string, unknown>): FeedStation | 
     shortages,
   }
 }
+
+// Un flux complet compte environ 9 800 stations : en dessous, il est tronqué
+const MIN_FEED_STATIONS = 5000
+// Par rapport au relevé en place : au-delà d'une baisse de 10 %, c'est une panne de la source, pas des fermetures
+const MIN_FEED_RATIO = 0.9
+
+/** Le flux est-il assez complet pour remplacer le relevé en place (qui supprime les stations absentes) ? */
+export function isFeedComplete(feedStations: number, currentStations: number): boolean {
+  return feedStations >= MIN_FEED_STATIONS && feedStations >= currentStations * MIN_FEED_RATIO
+}

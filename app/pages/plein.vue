@@ -74,8 +74,8 @@ async function findNearby() {
       stationError.value = failure.message
     })
     if (!position) return
-    const list = await $fetch<NearbyStation[]>('/api/stations', { query: { ...position, fuel: vehicle.value.fuel, radius: 3 } })
-    nearby.value = list.sort((a, b) => a.distanceKm - b.distanceKm).slice(0, 5)
+    const list = await $fetch<NearbyStation[]>('/api/stations', { query: { ...coarsePosition(position), fuel: vehicle.value.fuel, radius: 3 } })
+    nearby.value = withExactDistance(list, position).sort((a, b) => a.distanceKm - b.distanceKm).slice(0, 5)
     if (!nearby.value.length) stationError.value = 'Aucune station à moins de 3 km.'
   }
   catch {
@@ -94,8 +94,8 @@ async function detectStation() {
   if (permission?.state !== 'granted') return
   try {
     const position = await currentPosition()
-    const list = await $fetch<NearbyStation[]>('/api/stations', { query: { ...position, fuel, radius: 1 } })
-    const closest = list.sort((a, b) => a.distanceKm - b.distanceKm)[0]
+    const list = await $fetch<NearbyStation[]>('/api/stations', { query: { ...coarsePosition(position), fuel, radius: 1 } })
+    const closest = withExactDistance(list, position).sort((a, b) => a.distanceKm - b.distanceKm)[0]
     if (closest && closest.distanceKm <= AUTO_PICK_KM && !station.value) await loadStation(closest.id)
   }
   catch {
@@ -224,7 +224,21 @@ async function abandonDraft() {
   await clearStation()
 }
 
+/** Enregistrement en cours : un double tap ne doit pas créer deux pleins */
+const saving = ref(false)
+
 async function submit() {
+  if (saving.value) return
+  saving.value = true
+  try {
+    await savePlein()
+  }
+  finally {
+    saving.value = false
+  }
+}
+
+async function savePlein() {
   saved.value = ''
   unlocked.value = []
   const odometer = parseKm(form.odometer)
@@ -366,7 +380,7 @@ function remove(id: number) {
         <p v-if="error" class="error" role="alert">
           {{ error }}
         </p>
-        <button class="btn btn-primary btn-block">
+        <button class="btn btn-primary btn-block" :disabled="saving">
           Enregistrer le plein
         </button>
         <button v-if="canSaveForLater" type="button" class="btn btn-ghost btn-block" @click="saveForLater">

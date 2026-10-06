@@ -1,3 +1,4 @@
+import { BACKUP_VERSION, type Backup } from '#shared/backup'
 import { today } from '#shared/dates'
 import { defaultReminders, firstInspectionDate } from '#shared/reminders'
 import type { FillUp, FillUpDraft, IsoDate, Reminder, Vehicle } from '#shared/types'
@@ -108,4 +109,33 @@ export function parseReminderInput(form: { label: string, intervalKm: string, in
   if (intervalKm === undefined || intervalMonths === undefined) return 'Les intervalles doivent être des nombres entiers positifs.'
   if (intervalKm === null && intervalMonths === null) return 'Indique un intervalle en kilomètres, en mois, ou les deux.'
   return { label, intervalKm, intervalMonths }
+}
+
+/** Tout le carnet, tel quel, pour une sauvegarde hors de l'appareil */
+export async function exportGarage(): Promise<Backup> {
+  const db = useLocalDb()
+  return db.transaction('r', [db.vehicles, db.fillUps, db.reminders, db.services, db.drafts], async () => ({
+    app: 'titine' as const,
+    version: BACKUP_VERSION,
+    exportedAt: new Date().toISOString(),
+    vehicles: await db.vehicles.toArray(),
+    fillUps: await db.fillUps.toArray(),
+    reminders: await db.reminders.toArray(),
+    services: await db.services.toArray(),
+    drafts: await db.drafts.toArray(),
+  }))
+}
+
+/** Remplace tout le carnet par une sauvegarde (déjà validée) ; les identifiants sont conservés pour garder les liens */
+export function importGarage(backup: Backup) {
+  const db = useLocalDb()
+  void navigator.storage?.persist?.()
+  return db.transaction('rw', [db.vehicles, db.fillUps, db.reminders, db.services, db.drafts], async () => {
+    await Promise.all([db.vehicles.clear(), db.fillUps.clear(), db.reminders.clear(), db.services.clear(), db.drafts.clear()])
+    await db.vehicles.bulkAdd(backup.vehicles)
+    await db.fillUps.bulkAdd(backup.fillUps)
+    await db.reminders.bulkAdd(backup.reminders)
+    await db.services.bulkAdd(backup.services)
+    await db.drafts.bulkAdd(backup.drafts)
+  })
 }

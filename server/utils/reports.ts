@@ -3,6 +3,7 @@ import type { H3Event } from 'h3'
 import { and, count, eq, gte, inArray, isNull, lt, or } from 'drizzle-orm'
 import type { Fuel } from '../../shared/fuel'
 import type { ReportCounts, ReportInput } from '../../shared/reports'
+import { networkKey } from '../lib/network'
 
 // Au-delà, un signalement ne dit plus rien de l'état de la station
 const VISIBLE_HOURS = 48
@@ -16,9 +17,10 @@ const fallbackSalt = randomBytes(32).toString('hex')
 /** Empreinte de l'appelant, différente chaque jour : l'adresse IP n'est jamais enregistrée */
 export function reporterId(event: H3Event): string {
   const salt = useRuntimeConfig(event).cronSecret || process.env.CRON_SECRET || fallbackSalt
-  const ip = getRequestIP(event, { xForwardedFor: true }) ?? 'inconnue'
+  // `X-Forwarded-For` est fourni par le client : on ne s'y fie que sur Vercel, qui le réécrit
+  const ip = getRequestIP(event, { xForwardedFor: Boolean(process.env.VERCEL) }) ?? 'inconnue'
   const day = new Date().toISOString().slice(0, 10)
-  return createHash('sha256').update(`${salt}:${day}:${ip}`).digest('hex').slice(0, 32)
+  return createHash('sha256').update(`${salt}:${day}:${networkKey(ip)}`).digest('hex').slice(0, 32)
 }
 
 const hoursAgo = (hours: number) => new Date(Date.now() - hours * 3_600_000)

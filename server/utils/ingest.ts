@@ -1,8 +1,6 @@
-import { lt, sql } from 'drizzle-orm'
-import { FEED_URL, parseFeedRecord, type FeedStation } from '../lib/feed'
+import { count, lt, sql } from 'drizzle-orm'
+import { FEED_URL, isFeedComplete, parseFeedRecord, type FeedStation } from '../lib/feed'
 
-// En dessous, le flux est considéré tronqué : on garde les données en place plutôt que de vider la base
-const MIN_STATIONS = 5000
 // Une rupture « temporaire » plus ancienne est en fait un carburant abandonné sans le déclarer
 const MAX_SHORTAGE_AGE_DAYS = 30
 
@@ -19,10 +17,14 @@ export async function ingestFuelFeed() {
     const station = parseFeedRecord(record)
     if (station) parsed.set(station.id, station)
   }
-  if (parsed.size < MIN_STATIONS) throw new Error(`Flux incomplet : ${parsed.size} station(s) exploitables`)
 
   const db = await useDb()
   const { stations, stationPrices, stationShortages } = schema
+  // Flux tronqué : on garde le relevé en place plutôt que de supprimer les stations absentes
+  const [current] = await db.select({ total: count() }).from(stations)
+  if (!isFeedComplete(parsed.size, current?.total ?? 0)) {
+    throw new Error(`Flux incomplet : ${parsed.size} station(s) exploitables pour ${current?.total ?? 0} en base`)
+  }
   const seenAt = new Date()
   const stationRows = [...parsed.values()].map(({ prices: _, shortages: __, ...station }) => ({ ...station, seenAt }))
   const priceRows = [...parsed.values()].flatMap(station => station.prices.map(price => ({ stationId: station.id, ...price })))

@@ -30,7 +30,7 @@ async function share() {
   shareError.value = ''
   try {
     const image = await drawRecapImage(recap.value, vehicle.value, { unlocked: unlockedCount.value, total: badges.value.length })
-    await shareImage(image, `titine-bilan-${year.value}.png`, `Mon bilan ${year.value} avec Titine`)
+    await shareFile(image, `titine-bilan-${year.value}.png`, `Mon bilan ${year.value} avec Titine`)
   }
   catch {
     shareError.value = 'Le partage n\'a pas fonctionné. Réessaie dans un instant.'

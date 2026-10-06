@@ -88,22 +88,3 @@ export function drawRecapImage(recap: YearRecap, vehicle: Vehicle, badges: { unl
 
   return new Promise((resolve, reject) => canvas.toBlob(blob => (blob ? resolve(blob) : reject(new Error('Image impossible à générer'))), 'image/png'))
 }
-
-/** Partage l'image avec la feuille de partage du téléphone, ou la télécharge à défaut */
-export async function shareImage(blob: Blob, filename: string, text: string) {
-  const file = new File([blob], filename, { type: 'image/png' })
-  if (navigator.canShare?.({ files: [file] })) {
-    try {
-      await navigator.share({ files: [file], text })
-    }
-    catch (error) {
-      // Feuille de partage fermée par l'utilisateur : rien à signaler
-      if ((error as Error).name !== 'AbortError') throw error
-    }
-    return
-  }
-  const url = URL.createObjectURL(blob)
-  const link = Object.assign(document.createElement('a'), { href: url, download: filename })
-  link.click()
-  URL.revokeObjectURL(url)
-}

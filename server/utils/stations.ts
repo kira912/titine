@@ -82,7 +82,7 @@ export async function shortagesInRadius({ lat, lon, radiusKm, fuel }: AreaQuery)
     ))
 
   return rows
-    .map(({ lat: stationLat, lon: stationLon, ...row }) => ({ ...row, distanceKm: haversineKm(lat, lon, stationLat, stationLon) }))
+    .map(row => ({ ...row, distanceKm: haversineKm(lat, lon, row.lat, row.lon) }))
     .filter(row => row.distanceKm <= radiusKm)
     .sort((a, b) => a.distanceKm - b.distanceKm)
 }

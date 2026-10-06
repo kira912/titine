@@ -89,6 +89,8 @@ export interface NearbyStation {
 /** Station en rupture temporaire, renvoyée par `/api/stations/shortages` */
 export interface NearbyShortage {
   id: number
+  lat: number
+  lon: number
   address: string
   city: string
   since: string

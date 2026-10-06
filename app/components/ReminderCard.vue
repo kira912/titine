@@ -29,14 +29,24 @@ function open(next: 'done' | 'edit') {
   panel.value = next
 }
 
+/** Enregistrement en cours : un double tap ne doit pas noter deux fois l'entretien */
+const saving = ref(false)
+
 async function submitDone() {
+  if (saving.value) return
   const odometer = parseKm(done.odometer)
   const cost = done.cost.trim() === '' ? null : parseDecimal(done.cost)
   if (!done.date || done.date > today()) return void (error.value = 'Indique une date passée ou celle du jour.')
   if (odometer === null) return void (error.value = 'Indique le kilométrage au moment de l\'entretien.')
   if (done.cost.trim() !== '' && cost === null) return void (error.value = 'Le coût n\'est pas un montant valide.')
-  await completeReminder(props.vehicle, props.reminder, { date: done.date, odometer, cost })
-  panel.value = null
+  saving.value = true
+  try {
+    await completeReminder(props.vehicle, props.reminder, { date: done.date, odometer, cost })
+    panel.value = null
+  }
+  finally {
+    saving.value = false
+  }
 }
 
 async function submitEdit() {
@@ -103,7 +113,7 @@ const due = computed(() => formatDue(props.status))
       <p v-if="error" class="error" role="alert">
         {{ error }}
       </p>
-      <button class="btn btn-primary">
+      <button class="btn btn-primary" :disabled="saving">
         Enregistrer l'entretien
       </button>
     </form>

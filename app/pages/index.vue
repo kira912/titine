@@ -34,6 +34,13 @@ const { vehicle, ready } = useVehicle()
 const skipLanding = import.meta.client && !useNuxtApp().payload.serverRendered && hasGarageFlag()
 const fillUps = useFillUps()
 const { data: draft } = useDraft()
+// Le carnet n'existe que sur l'appareil : passé quelques pleins, on rappelle de le sauvegarder chaque mois
+const BACKUP_EVERY_DAYS = 30
+const backupDue = ref(false)
+onMounted(() => {
+  const last = lastBackupAt()
+  backupDue.value = !last || Date.now() - last.getTime() > BACKUP_EVERY_DAYS * 86_400_000
+})
 const statuses = useReminderStatuses(vehicle)
 
 const segments = computed(() => consumptionSegments(fillUps.value))
@@ -216,6 +223,13 @@ const yearSavings = computed(() => savingsSummary(fillUps.value, `${today().slic
     <p v-else-if="fillUps.length" class="muted small" style="margin: 0">
       💰 Choisis la station quand tu ajoutes un plein : Titine te dira combien tu as économisé par rapport aux prix du coin.
     </p>
+
+    <NuxtLink v-if="backupDue && fillUps.length >= 3" to="/vehicule#sauvegarde" class="card card-soon" style="text-decoration: none">
+      <strong>💾 Sauvegarde ton carnet</strong>
+      <span class="muted small" style="display: block">
+        Il n'existe que sur ce téléphone : une copie à l'abri, et rien ne se perd si tu en changes.
+      </span>
+    </NuxtLink>
 
     <NuxtLink to="/bilan" class="card" style="text-decoration: none">
       <div class="row">

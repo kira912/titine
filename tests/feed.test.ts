@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { formatCity, parseFeedRecord } from '../server/lib/feed'
+import { formatCity, isFeedComplete, parseFeedRecord } from '../server/lib/feed'
 
 const record = {
   id: 75011003,
@@ -77,5 +77,17 @@ describe('formatCity', () => {
 
   it('ne touche pas à une casse déjà mixte', () => {
     expect(formatCity('Aix-en-Provence')).toBe('Aix-en-Provence')
+  })
+})
+
+describe('isFeedComplete', () => {
+  it('accepte un flux complet, premier import compris', () => {
+    expect(isFeedComplete(9_800, 0)).toBe(true)
+    expect(isFeedComplete(9_800, 9_840)).toBe(true)
+  })
+
+  it('refuse un flux tronqué, même au-dessus du plancher absolu', () => {
+    expect(isFeedComplete(6_000, 9_840)).toBe(false)
+    expect(isFeedComplete(4_000, 0)).toBe(false)
   })
 })

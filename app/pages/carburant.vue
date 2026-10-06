@@ -62,14 +62,15 @@ async function search() {
   error.value = ''
   selected.value = null
   try {
-    const area = { ...position.value, fuel: selectedFuel.value, radius: radius.value }
+    const here = position.value
+    const area = { ...coarsePosition(here), fuel: selectedFuel.value, radius: radius.value }
     const [found, missing] = await Promise.all([
       $fetch<NearbyStation[]>('/api/stations', { query: { ...area, services: services.value.join(',') || undefined } }),
       // Information d'appoint : son échec ne doit pas masquer les prix
       $fetch<NearbyShortage[]>('/api/stations/shortages', { query: area }).catch(() => []),
     ])
-    stations.value = found
-    shortages.value = missing
+    stations.value = withExactDistance(found, here)
+    shortages.value = withExactDistance(missing, here).sort((a, b) => a.distanceKm - b.distanceKm)
   }
   catch {
     error.value = navigator.onLine
