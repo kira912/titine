@@ -1,4 +1,5 @@
 import { consumptionSegments, fuelStats } from './consumption'
+import { countedFillUps, countedSegments, countedServices, entryMonth } from './credibility'
 import { fillUpSaving, savingsSummary } from './savings'
 import type { FillUp, Service } from './types'
 
@@ -19,7 +20,14 @@ interface AchievementRule {
   title: string
   description: string
   target: number
-  progress: (data: GarageData) => number
+  progress: (data: CountedData) => number
+}
+
+/** Données du carnet réduites à ce qui compte pour les badges (voir `credibility.ts`) */
+interface CountedData {
+  fillUps: FillUp[]
+  allFillUps: FillUp[]
+  services: Service[]
 }
 
 export interface GarageData {
@@ -27,10 +35,12 @@ export interface GarageData {
   services: Service[]
 }
 
-/** Plus longue suite de mois consécutifs ayant au moins un plein */
-export function longestMonthStreak(fillUps: Pick<FillUp, 'date'>[]): number {
-  const months = [...new Set(fillUps.map(fill => Number(fill.date.slice(0, 4)) * 12 + Number(fill.date.slice(5, 7))))]
-    .sort((a, b) => a - b)
+/** Plus longue suite de mois consécutifs ayant au moins un plein (mois de saisie, pour ne pas antidater) */
+export function longestMonthStreak(fillUps: Pick<FillUp, 'date' | 'createdAt'>[]): number {
+  const months = [...new Set(fillUps.map((fill) => {
+    const month = entryMonth(fill)
+    return Number(month.slice(0, 4)) * 12 + Number(month.slice(5, 7))
+  }))].sort((a, b) => a - b)
   let best = 0
   let run = 0
   months.forEach((month, index) => {
@@ -40,14 +50,15 @@ export function longestMonthStreak(fillUps: Pick<FillUp, 'date'>[]): number {
   return best
 }
 
-/** Plus longue suite de tronçons consommant moins que la moyenne de tous les tronçons */
+/** Plus longue suite de tronçons (qui comptent) consommant moins que la moyenne de tous les tronçons */
 export function longestFrugalRun(fillUps: FillUp[]): number {
   const average = fuelStats(fillUps).consumption
   if (average === null) return 0
+  const counted = new Set(countedSegments(fillUps).map(segment => segment.odometer))
   let best = 0
   let run = 0
   for (const segment of consumptionSegments(fillUps)) {
-    run = segment.consumption < average ? run + 1 : 0
+    run = counted.has(segment.odometer) && segment.consumption < average ? run + 1 : 0
     best = Math.max(best, run)
   }
   return best
@@ -100,7 +111,7 @@ const RULES: AchievementRule[] = [
     title: 'Pilote sobre',
     description: 'Consomme moins que ta moyenne 3 pleins d\'affilée.',
     target: 3,
-    progress: ({ fillUps }) => longestFrugalRun(fillUps),
+    progress: ({ allFillUps }) => longestFrugalRun(allFillUps),
   },
   {
     id: 'grand-rouleur',
@@ -108,7 +119,7 @@ const RULES: AchievementRule[] = [
     title: 'Grand rouleur',
     description: 'Suis 10 000 km de consommation.',
     target: 10_000,
-    progress: ({ fillUps }) => fuelStats(fillUps).distance,
+    progress: ({ allFillUps }) => countedSegments(allFillUps).reduce((sum, segment) => sum + segment.distance, 0),
   },
   {
     id: 'serie',
@@ -128,9 +139,10 @@ const RULES: AchievementRule[] = [
   },
 ]
 
-export function achievements(data: GarageData): Achievement[] {
+export function achievements({ fillUps, services }: GarageData): Achievement[] {
+  const counted: CountedData = { fillUps: countedFillUps(fillUps), allFillUps: fillUps, services: countedServices(services) }
   return RULES.map(({ progress, ...rule }) => {
-    const current = Math.min(progress(data), rule.target)
+    const current = Math.min(progress(counted), rule.target)
     return { ...rule, current, unlocked: current >= rule.target }
   })
 }

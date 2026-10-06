@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { achievements, longestFrugalRun, longestMonthStreak, newlyUnlocked } from '../shared/achievements'
 import type { FillUp } from '../shared/types'
 
-const fill = (odometer: number, liters: number, date = '2026-01-01', localAverage?: number): FillUp => ({
+// Une date par plein (tous les 500 km) : un seul plein compte par date
+const fill = (odometer: number, liters: number, date = `2026-01-${String(odometer / 500 + 1).padStart(2, '0')}`, localAverage?: number): FillUp => ({
   vehicleId: 1,
   date,
   odometer,
@@ -41,13 +42,38 @@ describe('achievements', () => {
   })
 
   it('compte les pleins payés sous la moyenne du coin', () => {
-    const fills = [1, 2, 3, 4, 5].map(i => fill(i * 500, 40, '2026-01-01', 1.9))
+    const fills = [1, 2, 3, 4, 5].map(i => fill(i * 500, 40, undefined, 1.9))
     expect(find(achievements({ fillUps: fills, services: [] }), 'chasseur-de-prix').unlocked).toBe(true)
   })
 
   it('plafonne la progression à l’objectif', () => {
     const fills = Array.from({ length: 12 }, (_, i) => fill(i * 500, 40))
     expect(find(achievements({ fillUps: fills, services: [] }), 'carnet-tenu').current).toBe(10)
+  })
+})
+
+describe('saisies abusives', () => {
+  const createdAt = '2026-03-10T12:00:00'
+
+  it('ne débloque pas « Carnet tenu » avec dix pleins saisis d’un coup', () => {
+    const fills = Array.from({ length: 10 }, (_, i) => ({ ...fill(i * 500, 30), createdAt }))
+    expect(find(achievements({ fillUps: fills, services: [] }), 'carnet-tenu').current).toBe(2)
+  })
+
+  it('ne débloque pas la série de six mois avec des pleins antidatés', () => {
+    const fills = Array.from({ length: 6 }, (_, i) => ({ ...fill(i * 500, 30, `2025-${String(i + 7).padStart(2, '0')}-01`), createdAt }))
+    expect(find(achievements({ fillUps: fills, services: [] }), 'serie').current).toBe(1)
+  })
+
+  it('ne compte pas les kilomètres d’un saut de compteur', () => {
+    const fills = [fill(0, 40, '2026-01-01'), fill(10_000, 40, '2026-01-02')]
+    expect(find(achievements({ fillUps: fills, services: [] }), 'grand-rouleur').current).toBe(0)
+  })
+
+  it('ne compte pas l’économie d’un prix payé très inférieur au prix affiché', () => {
+    const station = { id: 1, address: '', city: 'Lyon', price: 1.8, localAverage: 1.9 }
+    const fills = [{ ...fill(0, 40), totalPrice: 40, station }]
+    expect(find(achievements({ fillUps: fills, services: [] }), 'cagnotte').current).toBe(0)
   })
 })
 

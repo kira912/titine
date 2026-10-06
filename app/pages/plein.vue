@@ -2,6 +2,7 @@
 import { consumptionSegments, odometerConflict } from '#shared/consumption'
 import { today } from '#shared/dates'
 import { achievements, newlyUnlocked, type Achievement } from '#shared/achievements'
+import { LIMITS } from '#shared/credibility'
 import { fillUpSaving } from '#shared/savings'
 import type { FillUpStation, NearbyStation, StationDetail } from '#shared/types'
 
@@ -94,10 +95,17 @@ watch([liters, () => station.value?.price], ([value, price]) => {
 
 function stationRecord(): FillUpStation | null {
   if (!station.value) return null
-  const { id, address, city, localAverage } = station.value
-  return { id, address, city, localAverage: comparable.value ? localAverage : null }
+  const { id, address, city, price, localAverage } = station.value
+  return { id, address, city, price: comparable.value ? price : null, localAverage: comparable.value ? localAverage : null }
 }
 
+
+/** Prix payé très éloigné du prix affiché : faute de frappe probable, et pas d'économie comptée */
+const priceMismatch = computed(() => {
+  const displayed = station.value?.price
+  return Boolean(comparable.value && displayed && pricePerLiter.value
+    && Math.abs(pricePerLiter.value - displayed) > LIMITS.stationPriceTolerance)
+})
 
 /** « 4,20 € de moins que la moyenne » ou « 1,10 € de plus que la moyenne » */
 function savingLabel(saving: number) {
@@ -217,6 +225,10 @@ function remove(id: number) {
         </div>
         <p v-if="pricePerLiter" class="muted small" style="margin: 0">
           Soit {{ formatEuro(pricePerLiter, 3) }} le litre.
+        </p>
+        <p v-if="priceMismatch" class="badge badge-soon" style="justify-self: start; white-space: normal">
+          Le prix au litre est très éloigné de celui affiché par la station ({{ formatEuro(station!.price!, 3) }}) : vérifie ta saisie.
+          Sinon, ce plein ne comptera pas dans tes économies.
         </p>
         <p v-if="station && !comparable" class="muted small" style="margin: 0">
           La comparaison avec les prix du coin ne se fait que pour un plein du jour.

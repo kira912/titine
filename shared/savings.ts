@@ -1,13 +1,15 @@
+import { isPlausibleFillUp, matchesStationPrice } from './credibility'
 import type { FillUp, IsoDate } from './types'
 
 /**
  * Économie d'un plein par rapport au prix moyen autour de la station le jour du plein :
  * positive si le plein a coûté moins cher que la moyenne, négative s'il a coûté plus cher.
- * `null` si le plein n'est rattaché à aucune moyenne.
+ * `null` si le plein n'est rattaché à aucune moyenne, ou si le prix saisi est invraisemblable
+ * (très éloigné du prix affiché par la station) : une faute de frappe ne doit pas passer pour une économie.
  */
 export function fillUpSaving(fill: Pick<FillUp, 'liters' | 'totalPrice' | 'station'>): number | null {
   const average = fill.station?.localAverage
-  if (!average) return null
+  if (!average || !isPlausibleFillUp(fill) || !matchesStationPrice(fill)) return null
   return average * fill.liters - fill.totalPrice
 }
 

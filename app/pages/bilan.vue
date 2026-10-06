@@ -174,6 +174,10 @@ async function share() {
           <span v-if="!badge.unlocked" class="muted small">{{ formatNumber(badge.current) }} / {{ formatNumber(badge.target) }}</span>
         </li>
       </ul>
+      <p class="muted small" style="margin: .75rem 0 0">
+        Pour que les badges gardent leur valeur, seuls les pleins vraisemblables comptent : un par jour,
+        deux saisis par jour au plus, et la série se compte au mois de saisie.
+      </p>
     </section>
   </div>
 </template>

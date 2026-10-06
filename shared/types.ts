@@ -26,6 +26,8 @@ export interface FillUp {
   full: boolean
   /** Station où le plein a été fait, si elle a été choisie (absente des pleins plus anciens) */
   station?: FillUpStation | null
+  /** Moment de la saisie (ISO), distinct de la date déclarée ; absent des pleins plus anciens */
+  createdAt?: string
 }
 
 /** Station d'un plein, figée au moment de la saisie */
@@ -33,6 +35,8 @@ export interface FillUpStation {
   id: number
   address: string
   city: string
+  /** Prix au litre affiché par la station au moment de la saisie */
+  price?: number | null
   /** Prix moyen au litre autour de la station ce jour-là ; `null` si trop peu de relevés */
   localAverage: number | null
 }
@@ -61,6 +65,8 @@ export interface Service {
   date: IsoDate
   odometer: number
   cost: number | null
+  /** Moment de la saisie (ISO) ; absent des entretiens plus anciens */
+  createdAt?: string
 }
 
 /** Station renvoyée par `/api/stations`, du moins cher au plus cher */

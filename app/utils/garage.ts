@@ -34,7 +34,7 @@ export function updateVehicle(id: number, input: VehicleInput) {
 export function addFillUp(vehicle: Saved<Vehicle>, input: FillUpInput) {
   const db = useLocalDb()
   return db.transaction('rw', db.vehicles, db.fillUps, async () => {
-    await db.fillUps.add({ ...input, vehicleId: vehicle.id })
+    await db.fillUps.add({ ...input, vehicleId: vehicle.id, createdAt: new Date().toISOString() })
     await bumpOdometer(vehicle, input.odometer)
   })
 }
@@ -70,7 +70,7 @@ export function completeReminder(
 ) {
   const db = useLocalDb()
   return db.transaction('rw', db.vehicles, db.reminders, db.services, async () => {
-    await db.services.add({ ...done, vehicleId: vehicle.id, reminderId: reminder.id, label: reminder.label })
+    await db.services.add({ ...done, vehicleId: vehicle.id, reminderId: reminder.id, label: reminder.label, createdAt: new Date().toISOString() })
     await db.reminders.update(reminder.id, { lastDate: done.date, lastOdometer: done.odometer })
     await bumpOdometer(vehicle, done.odometer)
   })
