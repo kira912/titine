@@ -49,6 +49,7 @@ Les migrations sont appliquées à la première requête. Après une modificatio
 - Services et ruptures : l'import retient 9 services utiles (gonflage, lavage, toilettes…, voir `shared/services.ts`) et les ruptures **temporaires** de moins de 30 jours (au-delà, le carburant a en fait été abandonné). Une station en rupture n'a plus de prix dans le flux.
 - `GET /api/stations?…&services=gonflage,toilettes` : ne garde que les stations proposant tous ces services.
 - `GET /api/stations/shortages?lat=…&lon=…&fuel=…&radius=…` : stations en rupture de ce carburant, de la plus proche à la plus éloignée.
+- `POST /api/stations/:id/reports` (`{ kind, fuel }`) : signalement d'une station, parmi des choix fermés (`prix-incorrect`, `rupture`, `station-fermee`, voir `shared/reports.ts`), sans texte libre donc sans contenu à modérer. Les signalements des dernières 48 h sont renvoyés avec les stations (`reports`) ; ils sont supprimés après 7 jours, au moment de l'import. Anti-abus : un signalement identique par jour et 20 au total par personne. La personne est reconnue par une empreinte SHA-256 de son IP, salée avec `CRON_SECRET` (ou un sel propre au processus) et la date du jour : l'IP n'est jamais stockée et l'empreinte change chaque jour.
 - `GET /api/stations/:id?fuel=gazole` : une station, son prix et le prix moyen (`localAverage`) à 10 km autour d'elle, `null` sous 3 relevés.
 - Les pages ville sont mises en cache 30 minutes (`swr`). Les communes homonymes sont distinguées par le département dans l'URL (`saint-denis-93`, `saint-denis-974`).
 

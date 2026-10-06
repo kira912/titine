@@ -56,6 +56,7 @@ export async function ingestFuelFeed() {
     await tx.delete(stationShortages)
     for (const rows of chunks(shortageRows, 2000)) await tx.insert(stationShortages).values(rows)
   })
+  await purgeReports()
 
   return { stations: stationRows.length, prices: priceRows.length, shortages: shortageRows.length, skipped: records.length - parsed.size }
 }

@@ -1,4 +1,5 @@
 import type { Fuel } from './fuel'
+import type { ReportCounts } from './reports'
 import type { ServiceId } from './services'
 
 /** Dates au format ISO court `AAAA-MM-JJ` */
@@ -72,6 +73,8 @@ export interface NearbyStation {
   postalCode: string
   alwaysOpen: boolean
   services: ServiceId[]
+  /** Signalements des dernières 48 h */
+  reports: ReportCounts
   price: number
   updatedAt: string
   distanceKm: number
@@ -101,5 +104,7 @@ export interface StationDetail {
   updatedAt: string | null
   /** Début de la rupture temporaire en cours pour ce carburant */
   shortageSince: string | null
+  /** Signalements des dernières 48 h */
+  reports: ReportCounts
   localAverage: number | null
 }

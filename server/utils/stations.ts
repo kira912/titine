@@ -58,10 +58,11 @@ async function pricesInRadius({ lat, lon, radiusKm, fuel, services = [] }: Omit<
 
 /** Stations vendant ce carburant dans le rayon, de la moins chère à la plus chère */
 export async function cheapestStations({ limit, ...query }: NearbyQuery) {
-  const rows = await pricesInRadius(query)
-  return rows
+  const rows = (await pricesInRadius(query))
     .sort((a, b) => a.price - b.price || a.distanceKm - b.distanceKm)
     .slice(0, limit)
+  const reports = await reportCounts(rows.map(row => row.id), query.fuel)
+  return rows.map(row => ({ ...row, reports: reports.get(row.id) ?? {} }))
 }
 
 /** Stations en rupture temporaire de ce carburant dans le rayon, de la plus proche à la plus éloignée */
@@ -109,7 +110,10 @@ export async function stationDetail(id: number, fuel: Fuel): Promise<StationDeta
     .from(stationPrices)
     .where(and(eq(stationPrices.stationId, id), eq(stationPrices.fuel, fuel), gte(stationPrices.updatedAt, freshSince())))
 
-  const around = await pricesInRadius({ lat: station.lat, lon: station.lon, radiusKm: LOCAL_RADIUS_KM, fuel })
+  const [around, reports] = await Promise.all([
+    pricesInRadius({ lat: station.lat, lon: station.lon, radiusKm: LOCAL_RADIUS_KM, fuel }),
+    reportCounts([id], fuel),
+  ])
 
   return {
     id: station.id,
@@ -123,6 +127,7 @@ export async function stationDetail(id: number, fuel: Fuel): Promise<StationDeta
     price: own?.price ?? null,
     updatedAt: own?.updatedAt.toISOString() ?? null,
     shortageSince: shortage?.since.toISOString() ?? null,
+    reports: reports.get(id) ?? {},
     localAverage: around.length >= LOCAL_MIN_STATIONS
       ? around.reduce((sum, row) => sum + row.price, 0) / around.length
       : null,

@@ -170,6 +170,7 @@ function remove(id: number) {
                   Pas de prix récent pour ce carburant
                 </template>
               </div>
+              <StationReports :station-id="station.id" :fuel="vehicle.fuel" :reports="station.reports" />
             </div>
             <button type="button" class="btn btn-small btn-ghost" @click="clearStation">
               Changer

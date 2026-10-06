@@ -202,6 +202,7 @@ const saving = computed(() => {
                   · <NuxtLink :to="{ path: '/plein', query: { station: station.id } }">J'ai fait le plein ici</NuxtLink>
                 </template>
               </div>
+              <StationReports :station-id="station.id" :fuel="selectedFuel" :reports="station.reports" />
             </div>
             <span class="price">{{ formatEuro(station.price, 3) }}</span>
           </li>

@@ -1,6 +1,7 @@
 import { sql } from 'drizzle-orm'
-import { boolean, doublePrecision, index, integer, pgTable, primaryKey, text, timestamp } from 'drizzle-orm/pg-core'
+import { boolean, doublePrecision, index, integer, pgTable, primaryKey, serial, text, timestamp } from 'drizzle-orm/pg-core'
 import type { Fuel } from '../../shared/fuel'
+import type { ReportKind } from '../../shared/reports'
 import type { ServiceId } from '../../shared/services'
 
 export const stations = pgTable('stations', {
@@ -38,4 +39,19 @@ export const stationShortages = pgTable('station_shortages', {
   since: timestamp('since', { withTimezone: true }).notNull(),
 }, t => [
   primaryKey({ columns: [t.stationId, t.fuel] }),
+])
+
+/** Signalements des utilisateurs, conservés 7 jours */
+export const stationReports = pgTable('station_reports', {
+  id: serial('id').primaryKey(),
+  stationId: integer('station_id').notNull().references(() => stations.id, { onDelete: 'cascade' }),
+  kind: text('kind').$type<ReportKind>().notNull(),
+  // Carburant concerné ; `null` pour une fermeture
+  fuel: text('fuel').$type<Fuel>(),
+  // Empreinte de l'adresse IP, salée et renouvelée chaque jour : limite les abus sans suivre personne
+  reporter: text('reporter').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),
+}, t => [
+  index('station_reports_station_idx').on(t.stationId, t.createdAt),
+  index('station_reports_reporter_idx').on(t.reporter, t.createdAt),
 ])
