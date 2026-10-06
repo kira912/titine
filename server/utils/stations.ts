@@ -1,8 +1,8 @@
-import { and, arrayContains, avg, between, count, desc, eq, gte, max, min, ne } from 'drizzle-orm'
+import { and, arrayContains, asc, avg, between, count, desc, eq, gte, max, min, ne, or, sql } from 'drizzle-orm'
 import type { Fuel } from '../../shared/fuel'
 import type { ServiceId } from '../../shared/services'
 import { boundingBox, haversineKm } from '../../shared/geo'
-import type { StationDetail } from '../../shared/types'
+import type { StationDetail, StationSearchResult } from '../../shared/types'
 
 // Au-delà, le prix n'est plus relevé par la station (souvent fermée) : on ne l'affiche pas
 const MAX_PRICE_AGE_DAYS = 30
@@ -85,6 +85,42 @@ export async function shortagesInRadius({ lat, lon, radiusKm, fuel }: AreaQuery)
     .map(row => ({ ...row, distanceKm: haversineKm(lat, lon, row.lat, row.lon) }))
     .filter(row => row.distanceKm <= radiusKm)
     .sort((a, b) => a.distanceKm - b.distanceKm)
+}
+
+// Adresses du flux : accents en vrac, majuscules ou non. On les compare sans accents, comme les mots cherchés
+// (translate() plutôt que l'extension unaccent, qui n'est pas forcément installée)
+const ACCENTED = 'àâäáãåçéèêëíìîïñóòôöõúùûüýÿœæ'
+const PLAIN = 'aaaaaaceeeeiiiinooooouuuuyyoa'
+
+/**
+ * Stations dont la commune, le code postal ou l'adresse contiennent tous les mots cherchés (`searchTerms`) :
+ * celles de la commune cherchée d'abord, puis celles qui ont un prix récent pour ce carburant
+ */
+export async function searchStations(terms: string[], fuel: Fuel, limit: number): Promise<StationSearchResult[]> {
+  if (!terms.length) return []
+  const db = await useDb()
+  const { stations, stationPrices } = schema
+  const plainAddress = sql`translate(lower(${stations.address}), ${ACCENTED}, ${PLAIN})`
+  // « lyon » cherche d'abord à Lyon, avant les « route de Lyon » d'ailleurs
+  const cityRank = sql`case
+    when ${stations.citySlug} like ${`${terms.join('-')}-%`} then 0
+    when ${and(...terms.map(term => sql`${stations.citySlug} like ${`%${term}%`}`))} then 1
+    else 2 end`
+
+  const rows = await db
+    .select({ id: stations.id, address: stations.address, city: stations.city, postalCode: stations.postalCode, price: stationPrices.price })
+    .from(stations)
+    .leftJoin(stationPrices, and(eq(stationPrices.stationId, stations.id), eq(stationPrices.fuel, fuel), gte(stationPrices.updatedAt, freshSince())))
+    // Les mots ne contiennent que [a-z0-9] : aucun joker de LIKE à échapper
+    .where(and(...terms.map(term => or(
+      sql`${stations.citySlug} like ${`%${term}%`}`,
+      sql`${stations.postalCode} like ${`${term}%`}`,
+      sql`${plainAddress} like ${`%${term}%`}`,
+    ))))
+    .orderBy(cityRank, sql`${stationPrices.price} is null`, asc(stations.city), asc(stations.address))
+    .limit(limit)
+
+  return rows
 }
 
 // Rayon de la « moyenne locale » à laquelle on compare le prix d'un plein

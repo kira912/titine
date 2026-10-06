@@ -86,6 +86,15 @@ export interface NearbyStation {
   distanceKm: number
 }
 
+/** Station trouvée par `/api/stations/search`, avec son prix pour ce carburant s'il est récent */
+export interface StationSearchResult {
+  id: number
+  address: string
+  city: string
+  postalCode: string
+  price: number | null
+}
+
 /** Station en rupture temporaire, renvoyée par `/api/stations/shortages` */
 export interface NearbyShortage {
   id: number

@@ -5,7 +5,8 @@ import { achievements, newlyUnlocked, type Achievement } from '#shared/achieveme
 import { LIMITS } from '#shared/credibility'
 import { estimateOdometer } from '#shared/estimate'
 import { fillUpSaving } from '#shared/savings'
-import type { FillUpDraft, FillUpStation, IsoDate, NearbyStation, StationDetail } from '#shared/types'
+import { SEARCH_LIMIT, searchTerms } from '#shared/search'
+import type { FillUpDraft, FillUpStation, IsoDate, NearbyStation, StationDetail, StationSearchResult } from '#shared/types'
 
 useSeoMeta({ title: 'Plein', robots: 'noindex, nofollow' })
 
@@ -56,6 +57,7 @@ async function loadStation(id: number) {
     station.value = await $fetch<StationDetail>(`/api/stations/${id}`, { query: { fuel: vehicle.value.fuel } })
     stationDay.value = today()
     nearby.value = null
+    stationQuery.value = ''
   }
   catch {
     stationError.value = navigator.onLine ? 'Station introuvable.' : 'Pas de réseau : la station ne peut pas être chargée.'
@@ -103,10 +105,70 @@ async function detectStation() {
   }
 }
 
+/** Recherche par commune, code postal ou adresse : pour un plein noté loin de la station */
+const stationQuery = ref('')
+const searchResults = ref<StationSearchResult[] | null>(null)
+let searchTimer: ReturnType<typeof setTimeout> | undefined
+let searchRun = 0
+
+watch(stationQuery, (query) => {
+  clearTimeout(searchTimer)
+  const run = ++searchRun
+  const fuel = vehicle.value?.fuel
+  if (!fuel || !searchTerms(query).length) {
+    searchResults.value = null
+    return
+  }
+  // On attend la fin de la frappe, et seule la dernière recherche lancée s'affiche
+  searchTimer = setTimeout(async () => {
+    stationError.value = ''
+    try {
+      const found = await $fetch<StationSearchResult[]>('/api/stations/search', { query: { q: query, fuel } })
+      if (run === searchRun) searchResults.value = found
+    }
+    catch {
+      if (run === searchRun) stationError.value = navigator.onLine ? 'La recherche est momentanément indisponible.' : 'Pas de réseau : la recherche n\'est pas disponible hors ligne.'
+    }
+  }, 300)
+})
+onBeforeUnmount(() => clearTimeout(searchTimer))
+
+interface StationChoice { id: number, name: string, detail: string, price: number | null }
+
+/** Stations des derniers pleins, de la plus récente à la plus ancienne */
+const recentStations = computed<StationChoice[]>(() => {
+  const seen = new Map<number, StationChoice>()
+  for (const fill of [...fillUps.value].sort((a, b) => b.date.localeCompare(a.date))) {
+    if (fill.station && !seen.has(fill.station.id)) {
+      seen.set(fill.station.id, { id: fill.station.id, name: formatStation(fill.station), detail: `Plein du ${formatDate(fill.date)}`, price: null })
+    }
+  }
+  return [...seen.values()].slice(0, 3)
+})
+
+/** Ce que propose le sélecteur : la recherche tapée, sinon les stations proches, sinon les habituelles */
+const choices = computed<{ title: string, list: StationChoice[] } | null>(() => {
+  if (searchResults.value) {
+    return {
+      title: searchResults.value.length ? 'Résultats' : '',
+      list: searchResults.value.map(found => ({ id: found.id, name: found.address || found.city, detail: `${found.postalCode} ${found.city}`, price: found.price })),
+    }
+  }
+  if (nearby.value?.length) {
+    return {
+      title: 'Autour de toi',
+      list: nearby.value.map(place => ({ id: place.id, name: formatStation(place), detail: `${formatNumber(place.distanceKm, 1)} km`, price: place.price })),
+    }
+  }
+  return recentStations.value.length ? { title: 'Tes stations', list: recentStations.value } : null
+})
+
 function clearStation() {
   station.value = null
   stationDay.value = null
   nearby.value = null
+  stationQuery.value = ''
+  searchResults.value = null
   stationError.value = ''
   if (route.query.station) return router.replace({ query: {} })
 }
@@ -321,21 +383,39 @@ function remove(id: number) {
             </button>
           </div>
         </template>
-        <template v-else-if="nearby">
-          <span class="eyebrow">Dans quelle station ?</span>
-          <div class="station-choices">
-            <button v-for="place in nearby" :key="place.id" type="button" class="station-choice" @click="loadStation(place.id)">
-              <span>
-                <strong>{{ formatStation(place) }}</strong>
-                <span class="muted small" style="display: block">{{ formatNumber(place.distanceKm, 1) }} km</span>
-              </span>
-              <PumpPrice :value="place.price" />
+        <template v-else>
+          <span class="eyebrow">Station (facultatif)</span>
+          <div class="station-tools">
+            <input
+              v-model="stationQuery"
+              type="search"
+              class="input"
+              placeholder="Ville, code postal ou adresse"
+              aria-label="Chercher une station par ville, code postal ou adresse"
+              enterkeyhint="search"
+              @keydown.enter.prevent
+            >
+            <button type="button" class="btn btn-ghost" :disabled="stationPending" @click="stationQuery = ''; findNearby()">
+              <AppIcon name="locate" /> {{ stationPending ? 'Recherche…' : 'Autour de moi' }}
             </button>
           </div>
+          <div v-if="choices" class="station-choices">
+            <span v-if="choices.title" class="eyebrow" style="margin: .2rem 0 0">{{ choices.title }}</span>
+            <button v-for="choice in choices.list" :key="choice.id" type="button" class="station-choice" @click="loadStation(choice.id)">
+              <span style="min-width: 0">
+                <strong>{{ choice.name }}</strong>
+                <span class="muted small" style="display: block">{{ choice.detail }}</span>
+              </span>
+              <PumpPrice v-if="choice.price" :value="choice.price" />
+            </button>
+            <p v-if="searchResults && !searchResults.length" class="muted small" style="margin: 0">
+              Aucune station trouvée. Essaie le nom de la commune ou le code postal.
+            </p>
+            <p v-else-if="searchResults?.length === SEARCH_LIMIT" class="muted small" style="margin: 0">
+              Seules les {{ SEARCH_LIMIT }} premières stations s'affichent : précise l'adresse.
+            </p>
+          </div>
         </template>
-        <button v-else type="button" class="btn btn-ghost btn-block" :disabled="stationPending" @click="findNearby">
-          <AppIcon name="locate" /> {{ stationPending ? 'Recherche…' : 'Choisir la station' }}
-        </button>
         <p v-if="stationError" class="muted small" style="margin: 0">
           {{ stationError }}
         </p>
@@ -473,6 +553,8 @@ function remove(id: number) {
 .station-main { display: flex; align-items: center; gap: .75rem; }
 .station-main > div { flex: 1; }
 .station-icon { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: var(--radius-small); background: var(--accent); color: var(--accent-contrast); }
+.station-tools { display: grid; gap: .5rem; }
+.station-tools .btn { justify-self: start; }
 .station-choices { display: grid; gap: .4rem; }
 .station-choice { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .6rem .75rem; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--surface); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
 .station-choice:hover { border-color: var(--accent); }
