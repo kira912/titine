@@ -43,6 +43,8 @@ export default defineNuxtConfig({
       // Fond de carte vectoriel OpenFreeMap (sans clé ni quota), Fiord : bleu nuit, assorti à la palette Catppuccin Frappé.
       // NUXT_PUBLIC_MAP_STYLE : autre style compatible MapLibre (…/styles/liberty, …/styles/dark, …/styles/positron)
       mapStyle: 'https://tiles.openfreemap.org/styles/fiord',
+      // NUXT_PUBLIC_GA_ID : identifiant de mesure Google Analytics 4 (G-XXXXXXXXXX). Vide : pas de GA ni de bandeau
+      gaId: '',
     },
   },
 

@@ -76,6 +76,11 @@ Les migrations sont appliquées à la première requête. Après une modificatio
 - **`NUXT_PUBLIC_SITE_URL` doit être l'origine publique en production** : canoniques, Open Graph, sitemap et robots.txt en dépendent.
 - L'accueil public est dans le HTML pour les moteurs ; un navigateur qui a déjà un véhicule le masque avant le premier rendu (drapeau `titine:garage` en localStorage) pour afficher directement le tableau de bord.
 
+## Mesure d'audience
+
+- **Vercel Web Analytics** : sans cookie, actif une fois activé dans le tableau de bord Vercel.
+- **Google Analytics 4** (`app/plugins/analytics.client.ts`) : actif seulement si `NUXT_PUBLIC_GA_ID` (identifiant de mesure `G-…`) est défini. GA dépose des cookies : rien n'est chargé ni envoyé à Google avant l'accord du visiteur (`ConsentBanner`, « Refuser » aussi simple qu'« Accepter »). Le choix est retenu 13 mois dans le navigateur, puis redemandé, comme le recommande la CNIL ; il se change à tout moment en bas de chaque page (`ConsentFooter`), et un retrait efface les cookies `_ga`. Signaux Google et personnalisation publicitaire désactivés. Seules les pages vues et les données techniques de GA partent : jamais le contenu du carnet. Les navigations de l'appli sont comptées par la mesure améliorée de GA4 (« changements de page basés sur l'historique », activée par défaut).
+
 ## Installation et hors ligne
 
 - Le service worker précache la coquille de l'appli : le carnet s'ouvre et se remplit sans réseau. Seule la recherche de stations a besoin d'une connexion. Il n'existe que sur le build de production, pas en `pnpm dev`. Hors ligne, toute navigation est servie par la coquille SPA `/200` générée par Nuxt.

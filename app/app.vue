@@ -54,7 +54,9 @@ useSeoMeta({
   </header>
   <main class="container">
     <NuxtPage />
+    <ConsentFooter />
   </main>
+  <ConsentBanner />
   <nav class="tabbar" aria-label="Navigation principale">
     <div class="tabbar-inner">
       <NuxtLink v-for="tab in tabs" :key="tab.to" :to="tab.to" class="tab" :class="{ 'tab-main': tab.main }">
