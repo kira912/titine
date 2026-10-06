@@ -2,6 +2,7 @@
 import { FUELS, FUEL_LABELS, type Fuel } from '#shared/fuel'
 import { SERVICES, SERVICE_LABELS, type ServiceId } from '#shared/services'
 import { SERVICE_ICONS } from '~/utils/icons'
+import { DEFAULT_PROFILE, betterDeal, driverProfile, tripCost } from '#shared/detour'
 import type { NearbyShortage, NearbyStation } from '#shared/types'
 
 const title = 'Station essence la moins chère autour de moi'
@@ -17,6 +18,7 @@ const RADII = [5, 10, 20, 50]
 const MAX_RESULTS = 30
 
 const { vehicle } = useVehicle()
+const fillUps = useFillUps()
 
 // Conservés d'un onglet à l'autre : on ne redemande pas la position à chaque visite
 const fuel = useState<Fuel | null>('nearby-fuel', () => null)
@@ -98,11 +100,20 @@ async function locate() {
 
 watch([selectedFuel, radius, services], () => void search())
 
+/** Plein habituel et consommation réelle, si le carburant cherché est celui du véhicule */
+const profile = computed(() => (vehicle.value?.fuel === selectedFuel.value ? driverProfile(fillUps.value) : DEFAULT_PROFILE))
+/** « Ça vaut le détour ? » : la station la plus rentable, trajet compris, si ce n'est pas la moins chère au litre */
+const deal = computed(() => (stations.value ? betterDeal(stations.value, profile.value) : null))
+const tripLabel = (station: NearbyStation) => {
+  const cost = tripCost(station, profile.value)
+  return `Plein de ${formatNumber(profile.value.liters)} L : ${formatEuro(cost.fill)} + ${formatEuro(cost.trip)} de trajet`
+}
+
 const directions = (station: NearbyStation) => `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lon}`
-/** Écart entre la station la moins chère et la plus chère du rayon, sur un plein de 40 L */
+/** Écart entre la station la moins chère et la plus chère du rayon, sur un plein habituel */
 const saving = computed(() => {
   const list = stations.value
-  return list && list.length > 1 ? (list.at(-1)!.price - list[0]!.price) * 40 : 0
+  return list && list.length > 1 ? (list.at(-1)!.price - list[0]!.price) * profile.value.liters : 0
 })
 </script>
 
@@ -203,8 +214,26 @@ const saving = computed(() => {
           <FuelTag :fuel="selectedFuel" />
         </div>
         <p v-if="saving >= 1" class="note note-accent small">
-          Jusqu'à <strong>{{ formatEuro(saving) }}</strong> d'écart sur un plein de 40 L entre la première et la dernière station de cette liste.
+          Jusqu'à <strong>{{ formatEuro(saving) }}</strong> d'écart sur un plein de {{ formatNumber(profile.liters) }} L entre la première et la dernière station de cette liste.
         </p>
+        <aside v-if="deal" class="card deal">
+          <span class="eyebrow">Ça vaut le détour ?</span>
+          <p style="margin: 0">
+            La moins chère au litre est à {{ formatNumber(deal.cheapest.station.distanceKm, 1) }} km.
+            <button type="button" class="link-btn" @click="showOnMap(deal.station.id)">
+              {{ deal.station.address || deal.station.city }}
+            </button>,
+            à {{ formatNumber(deal.station.distanceKm, 1) }} km, te revient <strong>{{ formatEuro(deal.gain) }} moins cher</strong>, aller-retour compris.
+          </p>
+          <p class="muted small" style="margin: .4rem 0 0">
+            <template v-if="profile.estimated">
+              Calcul pour un plein de {{ formatNumber(profile.liters) }} L à {{ formatNumber(profile.consumption, 1) }} L/100 km (valeurs typiques{{ vehicle?.fuel === selectedFuel ? ' : ajoute des pleins pour un calcul sur mesure' : '' }}).
+            </template>
+            <template v-else>
+              Calcul avec ton plein habituel ({{ formatNumber(profile.liters) }} L) et ta consommation réelle ({{ formatNumber(profile.consumption, 1) }} L/100 km).
+            </template>
+          </p>
+        </aside>
         <ol class="list">
           <li v-for="(station, index) in stations" :key="station.id" class="list-item" :class="{ 'list-item-active': station.id === selected }">
             <span class="rank" aria-hidden="true">{{ index + 1 }}</span>
@@ -213,9 +242,13 @@ const saving = computed(() => {
                 {{ station.address || station.city }}
               </button>
               <span v-if="index === 0" class="badge badge-ok best-badge">Le moins cher</span>
+              <span v-if="deal?.station.id === station.id" class="badge badge-soon badge-deal best-badge">Le plus rentable</span>
               <div class="muted small">
                 {{ station.postalCode }} {{ station.city }} · {{ formatNumber(station.distanceKm, 1) }} km
                 <template v-if="station.alwaysOpen"> · 24 h/24</template>
+              </div>
+              <div class="muted small">
+                {{ tripLabel(station) }}
               </div>
               <div v-if="station.services.length" class="station-services">
                 <span v-for="service in station.services" :key="service" :title="SERVICE_LABELS[service].label" role="img" :aria-label="SERVICE_LABELS[service].label"><AppIcon :name="SERVICE_ICONS[service]" /></span>
@@ -271,6 +304,8 @@ const saving = computed(() => {
 .rank { width: 1.6rem; flex-shrink: 0; padding-top: .1rem; color: var(--muted); font: 600 1.1rem/1.2 var(--font-display); }
 .station-body { flex: 1; min-width: 0; display: grid; gap: .2rem; }
 .best-badge { justify-self: start; }
+.badge-deal { background: var(--accent-soft); color: var(--accent); }
+.deal { margin-bottom: .75rem; border-color: var(--accent); box-shadow: inset 4px 0 0 var(--accent); }
 .station-name { justify-self: start; padding: 0; border: 0; background: none; color: inherit; font: 600 1.05rem var(--font-body); text-align: left; cursor: pointer; }
 .station-name:hover { color: var(--accent); }
 .list-item-active { margin: 0 -.6rem; padding-inline: .6rem; border-radius: var(--radius-small); background: var(--accent-soft); }

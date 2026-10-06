@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { APP } from '#shared/app'
 import { consumptionSegments, fuelStats } from '#shared/consumption'
+import { critAir } from '#shared/critair'
 import { FUEL_LABELS } from '#shared/fuel'
 import { today } from '#shared/dates'
 import { savingsSummary } from '#shared/savings'
@@ -162,6 +163,9 @@ const features: { icon: IconName, title: string, text: string, link?: { to: stri
           </h1>
         </div>
         <div class="row" style="flex-wrap: nowrap">
+          <NuxtLink v-if="vehicle.firstRegistration" to="/vehicule" class="dash-critair">
+            <CritAirBadge :value="critAir(vehicle.fuel, vehicle.firstRegistration)" />
+          </NuxtLink>
           <FuelTag :fuel="vehicle.fuel" class="dash-fuel" />
           <NuxtLink to="/vehicule" class="btn btn-icon btn-small dash-edit" aria-label="Modifier le véhicule">
             <AppIcon name="edit" />
@@ -284,6 +288,7 @@ const features: { icon: IconName, title: string, text: string, link?: { to: stri
 .hero h1 { font-size: clamp(2.2rem, 7vw, 3.2rem); max-width: 16ch; }
 .dash-title { margin: 0; color: var(--dash-text); font: 700 1.6rem/1.05 var(--font-display); }
 .dash-fuel { color: var(--dash-text); --fuel-bg: var(--dash); font-size: 1.05rem; }
+.dash-critair { display: inline-flex; font-size: 1.05rem; text-decoration: none; }
 .dash-edit { color: var(--dash-muted); border-color: var(--dash-line); }
 .dash-odometer { margin-top: 1rem; }
 .demo { margin: 0; }

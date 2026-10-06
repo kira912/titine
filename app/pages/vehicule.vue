@@ -19,6 +19,8 @@ const saved = ref(false)
       </p>
     </section>
 
+    <CritAirCard :vehicle="vehicle" />
+
     <BackupCard />
   </div>
 </template>
