@@ -62,3 +62,12 @@ export function formatInterval(reminder: Pick<Reminder, 'intervalKm' | 'interval
 export function formatStation(station: { address: string, city: string }): string {
   return [station.address, station.city].filter(Boolean).join(', ')
 }
+
+/** Ancienneté d'un événement : « depuis 40 min », « depuis 3 h », « depuis 2 jours » */
+export function formatSince(date: Date | string, now = new Date()): string {
+  const minutes = Math.max(0, Math.round((now.getTime() - new Date(date).getTime()) / 60_000))
+  if (minutes < 60) return `depuis ${minutes} min`
+  const hours = Math.round(minutes / 60)
+  if (hours < 48) return `depuis ${hours} h`
+  return `depuis ${Math.round(hours / 24)} jours`
+}

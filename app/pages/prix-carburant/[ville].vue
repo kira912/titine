@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { APP } from '#shared/app'
 import { FUELS, FUEL_LABELS, FUEL_SUBJECTS, type Fuel } from '#shared/fuel'
+import { SERVICE_LABELS } from '#shared/services'
 
 const route = useRoute()
 const slug = String(route.params.ville)
@@ -20,6 +21,11 @@ const fuels = computed(() => FUELS.flatMap((fuel) => {
   const average = offers.reduce((sum, offer) => sum + offer.price, 0) / offers.length
   return [{ fuel, best: best.price, bestAddress: best.address, average, national: city.value?.national[fuel] ?? null, stations: offers.length }]
 }))
+/** Stations en rupture temporaire, carburant par carburant */
+const shortages = computed(() => stations.value.flatMap(station => FUELS.flatMap(fuel =>
+  station.shortages[fuel] ? [{ station, fuel, since: station.shortages[fuel]! }] : [])))
+/** Colonnes du tableau : carburants vendus, ou en rupture, dans la commune */
+const columns = computed(() => FUELS.filter(fuel => fuels.value.some(entry => entry.fuel === fuel) || shortages.value.some(entry => entry.fuel === fuel)))
 const bestPrice = computed(() => Object.fromEntries(fuels.value.map(entry => [entry.fuel, entry.best])) as Partial<Record<Fuel, number>>)
 
 const updatedAt = computed(() => {
@@ -136,8 +142,8 @@ useJsonLd(() => ({
                 <th scope="col">
                   Station
                 </th>
-                <th v-for="entry in fuels" :key="entry.fuel" scope="col">
-                  {{ FUEL_LABELS[entry.fuel] }}
+                <th v-for="fuel in columns" :key="fuel" scope="col">
+                  {{ FUEL_LABELS[fuel] }}
                 </th>
               </tr>
             </thead>
@@ -146,16 +152,25 @@ useJsonLd(() => ({
                 <td>
                   {{ station.address }}
                   <span v-if="station.alwaysOpen" class="muted small"> · 24 h/24</span>
+                  <span v-if="station.services.length" class="station-services">
+                    <span v-for="service in station.services" :key="service" :title="SERVICE_LABELS[service].label" role="img" :aria-label="SERVICE_LABELS[service].label">{{ SERVICE_LABELS[service].emoji }}</span>
+                  </span>
                 </td>
-                <td v-for="entry in fuels" :key="entry.fuel" :class="{ best: station.prices[entry.fuel]?.price === bestPrice[entry.fuel] }">
-                  {{ station.prices[entry.fuel] ? formatEuro(station.prices[entry.fuel]!.price, 3) : '—' }}
+                <td v-for="fuel in columns" :key="fuel" :class="{ best: station.prices[fuel]?.price === bestPrice[fuel] }">
+                  <template v-if="station.prices[fuel]">
+                    {{ formatEuro(station.prices[fuel]!.price, 3) }}
+                  </template>
+                  <span v-else-if="station.shortages[fuel]" class="badge badge-soon">Rupture</span>
+                  <template v-else>
+                    —
+                  </template>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
         <p class="muted small" style="margin: .75rem 0 0">
-          Prix au litre, en vert le plus bas de la commune. Source : données publiques du ministère de l'Économie,
+          Prix au litre, en vert le plus bas de la commune ; « Rupture » : carburant momentanément indisponible. Source : données publiques du ministère de l'Économie,
           actualisées toutes les 30 minutes.
         </p>
       </section>
@@ -163,6 +178,15 @@ useJsonLd(() => ({
     <p v-else class="card muted">
       Aucune station de {{ name }} n'a déclaré de prix depuis 30 jours. Consulte les communes voisines ci-dessous.
     </p>
+
+    <section v-if="shortages.length" class="card card-soon">
+      <h2>Ruptures de carburant à {{ name }}</h2>
+      <ul style="margin: 0; padding-left: 1.2rem">
+        <li v-for="entry in shortages" :key="`${entry.station.id}-${entry.fuel}`">
+          <strong>{{ FUEL_LABELS[entry.fuel] }}</strong> indisponible au {{ entry.station.address }} depuis le {{ formatDate(entry.since) }}
+        </li>
+      </ul>
+    </section>
 
     <section v-if="city.nearby.length" class="card">
       <h2>Prix des carburants près de {{ name }}</h2>

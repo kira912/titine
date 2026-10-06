@@ -3,6 +3,8 @@ import { FEED_URL, parseFeedRecord, type FeedStation } from '../lib/feed'
 
 // En dessous, le flux est considéré tronqué : on garde les données en place plutôt que de vider la base
 const MIN_STATIONS = 5000
+// Une rupture « temporaire » plus ancienne est en fait un carburant abandonné sans le déclarer
+const MAX_SHORTAGE_AGE_DAYS = 30
 
 function chunks<T>(items: T[], size: number): T[][] {
   const out: T[][] = []
@@ -20,10 +22,14 @@ export async function ingestFuelFeed() {
   if (parsed.size < MIN_STATIONS) throw new Error(`Flux incomplet : ${parsed.size} station(s) exploitables`)
 
   const db = await useDb()
-  const { stations, stationPrices } = schema
+  const { stations, stationPrices, stationShortages } = schema
   const seenAt = new Date()
-  const stationRows = [...parsed.values()].map(({ prices: _, ...station }) => ({ ...station, seenAt }))
+  const stationRows = [...parsed.values()].map(({ prices: _, shortages: __, ...station }) => ({ ...station, seenAt }))
   const priceRows = [...parsed.values()].flatMap(station => station.prices.map(price => ({ stationId: station.id, ...price })))
+  const shortageSince = new Date(seenAt.getTime() - MAX_SHORTAGE_AGE_DAYS * 86_400_000)
+  const shortageRows = [...parsed.values()].flatMap(station => station.shortages
+    .filter(shortage => shortage.since >= shortageSince)
+    .map(shortage => ({ stationId: station.id, ...shortage })))
 
   // Une seule transaction : les lecteurs voient l'ancien relevé jusqu'à la fin de l'import
   await db.transaction(async (tx) => {
@@ -39,6 +45,7 @@ export async function ingestFuelFeed() {
           postalCode: sql`excluded.postal_code`,
           department: sql`excluded.department`,
           alwaysOpen: sql`excluded.always_open`,
+          services: sql`excluded.services`,
           seenAt: sql`excluded.seen_at`,
         },
       })
@@ -46,7 +53,9 @@ export async function ingestFuelFeed() {
     await tx.delete(stations).where(lt(stations.seenAt, seenAt))
     await tx.delete(stationPrices)
     for (const rows of chunks(priceRows, 2000)) await tx.insert(stationPrices).values(rows)
+    await tx.delete(stationShortages)
+    for (const rows of chunks(shortageRows, 2000)) await tx.insert(stationShortages).values(rows)
   })
 
-  return { stations: stationRows.length, prices: priceRows.length, skipped: records.length - parsed.size }
+  return { stations: stationRows.length, prices: priceRows.length, shortages: shortageRows.length, skipped: records.length - parsed.size }
 }

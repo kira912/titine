@@ -42,9 +42,13 @@ Les migrations sont appliquées à la première requête. Après une modificatio
 ## Prix des carburants
 
 - La tâche Nitro `fuel:ingest` télécharge le [flux instantané](https://data.economie.gouv.fr/explore/dataset/prix-des-carburants-en-france-flux-instantane-v2/) (environ 9 800 stations) et remplace le relevé dans une seule transaction. Un flux tronqué (moins de 5 000 stations) est rejeté et l'ancien relevé est conservé.
+- `pnpm ingest` ne fonctionne plus avec la version actuelle de nuxi (`Unknown command task`) : utiliser `curl -X POST localhost:3000/_nitro/tasks/fuel:ingest`.
 - Planification : toutes les 30 minutes par le planificateur de Nitro sur un serveur Node ; sur Vercel, par les crons et GitHub Actions (voir « Déploiement sur Vercel »). À la main en dev : `pnpm ingest` ou `curl -X POST localhost:3000/_nitro/tasks/fuel:ingest`.
 - `GET /api/cron/fuel-ingest` lance l'import en production, protégé par `Authorization: Bearer $CRON_SECRET` (401 sans le bon jeton, 503 si `CRON_SECRET` n'est pas défini).
 - `GET /api/stations?lat=…&lon=…&fuel=gazole&radius=10` : les 30 stations les moins chères dans le rayon (50 km maximum). Les prix relevés il y a plus de 30 jours sont écartés.
+- Services et ruptures : l'import retient 9 services utiles (gonflage, lavage, toilettes…, voir `shared/services.ts`) et les ruptures **temporaires** de moins de 30 jours (au-delà, le carburant a en fait été abandonné). Une station en rupture n'a plus de prix dans le flux.
+- `GET /api/stations?…&services=gonflage,toilettes` : ne garde que les stations proposant tous ces services.
+- `GET /api/stations/shortages?lat=…&lon=…&fuel=…&radius=…` : stations en rupture de ce carburant, de la plus proche à la plus éloignée.
 - `GET /api/stations/:id?fuel=gazole` : une station, son prix et le prix moyen (`localAverage`) à 10 km autour d'elle, `null` sous 3 relevés.
 - Les pages ville sont mises en cache 30 minutes (`swr`). Les communes homonymes sont distinguées par le département dans l'URL (`saint-denis-93`, `saint-denis-974`).
 

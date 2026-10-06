@@ -1,5 +1,6 @@
-import { and, avg, between, count, desc, eq, gte, max, min, ne } from 'drizzle-orm'
+import { and, arrayContains, avg, between, count, desc, eq, gte, max, min, ne } from 'drizzle-orm'
 import type { Fuel } from '../../shared/fuel'
+import type { ServiceId } from '../../shared/services'
 import { boundingBox, haversineKm } from '../../shared/geo'
 import type { StationDetail } from '../../shared/types'
 
@@ -8,16 +9,21 @@ const MAX_PRICE_AGE_DAYS = 30
 
 const freshSince = () => new Date(Date.now() - MAX_PRICE_AGE_DAYS * 86_400_000)
 
-interface NearbyQuery {
+interface AreaQuery {
   lat: number
   lon: number
   radiusKm: number
   fuel: Fuel
+}
+
+interface NearbyQuery extends AreaQuery {
   limit: number
+  /** Services que la station doit tous proposer */
+  services?: ServiceId[]
 }
 
 /** Prix récents de ce carburant dans le rayon, avec la distance au centre */
-async function pricesInRadius({ lat, lon, radiusKm, fuel }: Omit<NearbyQuery, 'limit'>) {
+async function pricesInRadius({ lat, lon, radiusKm, fuel, services = [] }: Omit<NearbyQuery, 'limit'>) {
   const db = await useDb()
   const { stations, stationPrices } = schema
   const box = boundingBox(lat, lon, radiusKm)
@@ -31,6 +37,7 @@ async function pricesInRadius({ lat, lon, radiusKm, fuel }: Omit<NearbyQuery, 'l
       city: stations.city,
       postalCode: stations.postalCode,
       alwaysOpen: stations.alwaysOpen,
+      services: stations.services,
       price: stationPrices.price,
       updatedAt: stationPrices.updatedAt,
     })
@@ -41,6 +48,7 @@ async function pricesInRadius({ lat, lon, radiusKm, fuel }: Omit<NearbyQuery, 'l
       gte(stationPrices.updatedAt, freshSince()),
       between(stations.lat, box.minLat, box.maxLat),
       between(stations.lon, box.minLon, box.maxLon),
+      services.length ? arrayContains(stations.services, services) : undefined,
     ))
 
   return rows
@@ -56,6 +64,28 @@ export async function cheapestStations({ limit, ...query }: NearbyQuery) {
     .slice(0, limit)
 }
 
+/** Stations en rupture temporaire de ce carburant dans le rayon, de la plus proche à la plus éloignée */
+export async function shortagesInRadius({ lat, lon, radiusKm, fuel }: AreaQuery) {
+  const db = await useDb()
+  const { stations, stationShortages } = schema
+  const box = boundingBox(lat, lon, radiusKm)
+
+  const rows = await db
+    .select({ id: stations.id, lat: stations.lat, lon: stations.lon, address: stations.address, city: stations.city, since: stationShortages.since })
+    .from(stationShortages)
+    .innerJoin(stations, eq(stations.id, stationShortages.stationId))
+    .where(and(
+      eq(stationShortages.fuel, fuel),
+      between(stations.lat, box.minLat, box.maxLat),
+      between(stations.lon, box.minLon, box.maxLon),
+    ))
+
+  return rows
+    .map(({ lat: stationLat, lon: stationLon, ...row }) => ({ ...row, distanceKm: haversineKm(lat, lon, stationLat, stationLon) }))
+    .filter(row => row.distanceKm <= radiusKm)
+    .sort((a, b) => a.distanceKm - b.distanceKm)
+}
+
 // Rayon de la « moyenne locale » à laquelle on compare le prix d'un plein
 const LOCAL_RADIUS_KM = 10
 // En dessous, la moyenne ne veut pas dire grand-chose
@@ -64,10 +94,15 @@ const LOCAL_MIN_STATIONS = 3
 /** Une station, son prix pour ce carburant et le prix moyen autour d'elle ; `null` si elle est inconnue */
 export async function stationDetail(id: number, fuel: Fuel): Promise<StationDetail | null> {
   const db = await useDb()
-  const { stations, stationPrices } = schema
+  const { stations, stationPrices, stationShortages } = schema
 
   const [station] = await db.select().from(stations).where(eq(stations.id, id))
   if (!station) return null
+
+  const [shortage] = await db
+    .select({ since: stationShortages.since })
+    .from(stationShortages)
+    .where(and(eq(stationShortages.stationId, id), eq(stationShortages.fuel, fuel)))
 
   const [own] = await db
     .select({ price: stationPrices.price, updatedAt: stationPrices.updatedAt })
@@ -84,8 +119,10 @@ export async function stationDetail(id: number, fuel: Fuel): Promise<StationDeta
     city: station.city,
     postalCode: station.postalCode,
     alwaysOpen: station.alwaysOpen,
+    services: station.services,
     price: own?.price ?? null,
     updatedAt: own?.updatedAt.toISOString() ?? null,
+    shortageSince: shortage?.since.toISOString() ?? null,
     localAverage: around.length >= LOCAL_MIN_STATIONS
       ? around.reduce((sum, row) => sum + row.price, 0) / around.length
       : null,
@@ -99,19 +136,29 @@ export interface CityStation {
   address: string
   postalCode: string
   alwaysOpen: boolean
+  services: ServiceId[]
   prices: Partial<Record<Fuel, { price: number, updatedAt: Date }>>
+  /** Ruptures temporaires en cours, avec leur début */
+  shortages: Partial<Record<Fuel, Date>>
 }
 
 /** Stations d'une commune avec leurs prix récents ; `null` si la commune est inconnue */
 export async function cityStations(slug: string) {
   const db = await useDb()
-  const { stations, stationPrices } = schema
+  const { stations, stationPrices, stationShortages } = schema
 
-  const rows = await db
-    .select({ station: stations, fuel: stationPrices.fuel, price: stationPrices.price, updatedAt: stationPrices.updatedAt })
-    .from(stations)
-    .leftJoin(stationPrices, and(eq(stationPrices.stationId, stations.id), gte(stationPrices.updatedAt, freshSince())))
-    .where(eq(stations.citySlug, slug))
+  const [rows, shortages] = await Promise.all([
+    db
+      .select({ station: stations, fuel: stationPrices.fuel, price: stationPrices.price, updatedAt: stationPrices.updatedAt })
+      .from(stations)
+      .leftJoin(stationPrices, and(eq(stationPrices.stationId, stations.id), gte(stationPrices.updatedAt, freshSince())))
+      .where(eq(stations.citySlug, slug)),
+    db
+      .select({ stationId: stationShortages.stationId, fuel: stationShortages.fuel, since: stationShortages.since })
+      .from(stationShortages)
+      .innerJoin(stations, eq(stations.id, stationShortages.stationId))
+      .where(eq(stations.citySlug, slug)),
+  ])
 
   const first = rows[0]
   if (!first) return null
@@ -125,10 +172,16 @@ export async function cityStations(slug: string) {
       address: station.address,
       postalCode: station.postalCode,
       alwaysOpen: station.alwaysOpen,
+      services: station.services,
       prices: {},
+      shortages: {},
     }
     if (fuel && price !== null && updatedAt) entry.prices[fuel] = { price, updatedAt }
     byId.set(station.id, entry)
+  }
+  for (const { stationId, fuel, since } of shortages) {
+    const entry = byId.get(stationId)
+    if (entry) entry.shortages[fuel] = since
   }
 
   const all = [...byId.values()]
@@ -141,7 +194,8 @@ export async function cityStations(slug: string) {
       lat: all.reduce((sum, station) => sum + station.lat, 0) / all.length,
       lon: all.reduce((sum, station) => sum + station.lon, 0) / all.length,
     },
-    stations: all.filter(station => Object.keys(station.prices).length > 0),
+    // Une station en rupture de tout reste affichée : c'est justement l'information utile
+    stations: all.filter(station => Object.keys(station.prices).length > 0 || Object.keys(station.shortages).length > 0),
   }
 }
 

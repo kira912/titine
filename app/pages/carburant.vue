@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { FUELS, FUEL_LABELS, type Fuel } from '#shared/fuel'
-import type { NearbyStation } from '#shared/types'
+import { SERVICES, SERVICE_LABELS, type ServiceId } from '#shared/services'
+import type { NearbyShortage, NearbyStation } from '#shared/types'
 
 const title = 'Station essence la moins chère autour de moi'
 const description = 'Trouve la station-service la moins chère autour de toi : gazole, SP95-E10, SP98, E85 et GPL, avec les prix relevés par les stations, la distance et l\'itinéraire.'
@@ -21,6 +22,15 @@ const fuel = useState<Fuel | null>('nearby-fuel', () => null)
 const radius = useState('nearby-radius', () => 10)
 const position = useState<{ lat: number, lon: number } | null>('nearby-position', () => null)
 const stations = useState<NearbyStation[] | null>('nearby-stations', () => null)
+const services = useState<ServiceId[]>('nearby-services', () => [])
+const shortages = useState<NearbyShortage[]>('nearby-shortages', () => [])
+const showShortages = ref(false)
+
+function toggleService(service: ServiceId) {
+  services.value = services.value.includes(service)
+    ? services.value.filter(item => item !== service)
+    : [...services.value, service]
+}
 
 const pending = ref<'locating' | 'loading' | null>(null)
 // Page rendue côté serveur : le bouton reste inactif tant que son code n'est pas branché, sinon le clic serait perdu
@@ -52,9 +62,14 @@ async function search() {
   error.value = ''
   selected.value = null
   try {
-    stations.value = await $fetch<NearbyStation[]>('/api/stations', {
-      query: { ...position.value, fuel: selectedFuel.value, radius: radius.value },
-    })
+    const area = { ...position.value, fuel: selectedFuel.value, radius: radius.value }
+    const [found, missing] = await Promise.all([
+      $fetch<NearbyStation[]>('/api/stations', { query: { ...area, services: services.value.join(',') || undefined } }),
+      // Information d'appoint : son échec ne doit pas masquer les prix
+      $fetch<NearbyShortage[]>('/api/stations/shortages', { query: area }).catch(() => []),
+    ])
+    stations.value = found
+    shortages.value = missing
   }
   catch {
     error.value = navigator.onLine
@@ -79,7 +94,7 @@ async function locate() {
   await search()
 }
 
-watch([selectedFuel, radius], () => void search())
+watch([selectedFuel, radius, services], () => void search())
 
 const directions = (station: NearbyStation) => `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lon}`
 /** Écart entre la station la moins chère et la plus chère du rayon, sur un plein de 40 L */
@@ -114,6 +129,21 @@ const saving = computed(() => {
           </select>
         </label>
       </div>
+      <fieldset class="services">
+        <legend class="small">
+          Services
+        </legend>
+        <button
+          v-for="service in SERVICES"
+          :key="service"
+          type="button"
+          class="chip"
+          :aria-pressed="services.includes(service)"
+          @click="toggleService(service)"
+        >
+          {{ SERVICE_LABELS[service].emoji }} {{ SERVICE_LABELS[service].label }}
+        </button>
+      </fieldset>
       <button class="btn btn-primary btn-block" :disabled="!mounted || pending !== null" @click="locate">
         {{ pending === 'locating' ? 'Localisation…' : pending === 'loading' ? 'Recherche…' : position ? '📍 Actualiser ma position' : '📍 Chercher autour de moi' }}
       </button>
@@ -125,6 +155,22 @@ const saving = computed(() => {
     <div v-if="position && stations?.length" ref="mapFrame" style="scroll-margin-top: 1rem">
       <StationsMap :stations="stations" :position="position" :selected="selected" @select="selected = $event" />
     </div>
+
+    <section v-if="stations && shortages.length" class="card card-soon">
+      <button type="button" class="shortage-toggle" :aria-expanded="showShortages" @click="showShortages = !showShortages">
+        ⚠️ {{ shortages.length }} station{{ shortages.length > 1 ? 's' : '' }} en rupture de {{ FUEL_LABELS[selectedFuel] }} dans ce rayon
+      </button>
+      <ul v-if="showShortages" class="list">
+        <li v-for="shortage in shortages" :key="shortage.id" class="list-item">
+          <div>
+            <strong>{{ formatStation(shortage) }}</strong>
+            <div class="muted small">
+              {{ formatNumber(shortage.distanceKm, 1) }} km · en rupture {{ formatSince(shortage.since) }}
+            </div>
+          </div>
+        </li>
+      </ul>
+    </section>
 
     <section v-if="stations" class="card" aria-live="polite">
       <template v-if="stations.length">
@@ -146,6 +192,9 @@ const saving = computed(() => {
                 {{ station.postalCode }} {{ station.city }} · {{ formatNumber(station.distanceKm, 1) }} km
                 <template v-if="station.alwaysOpen"> · 24 h/24</template>
               </div>
+              <div v-if="station.services.length" class="muted small station-services">
+                <span v-for="service in station.services" :key="service" :title="SERVICE_LABELS[service].label" role="img" :aria-label="SERVICE_LABELS[service].label">{{ SERVICE_LABELS[service].emoji }}</span>
+              </div>
               <div class="muted small">
                 Relevé le {{ formatDate(station.updatedAt) }} ·
                 <a :href="directions(station)" target="_blank" rel="noopener">Itinéraire</a>
@@ -159,7 +208,9 @@ const saving = computed(() => {
         </ul>
       </template>
       <p v-else class="muted" style="margin: 0">
-        Aucune station ne vend du {{ FUEL_LABELS[selectedFuel] }} dans un rayon de {{ radius }} km. Essaie un rayon plus large.
+        Aucune station ne vend du {{ FUEL_LABELS[selectedFuel] }}
+        <template v-if="services.length">avec ces services</template> dans un rayon de {{ radius }} km.
+        Essaie un rayon plus large{{ services.length ? ' ou moins de services' : '' }}.
       </p>
     </section>
 
@@ -180,6 +231,11 @@ const saving = computed(() => {
 </template>
 
 <style scoped>
+.services { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0; padding: 0; border: 0; }
+.services legend { margin-bottom: .4rem; padding: 0; font-weight: 600; }
+.chip { min-height: 34px; padding: 0 .75rem; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: .85rem; cursor: pointer; }
+.chip[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.shortage-toggle { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
 .station-name { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 700; text-align: left; cursor: pointer; }
 .station-name:hover { color: var(--accent); }
 .list-item-active { margin: 0 -.6rem; padding-inline: .6rem; border-radius: 10px; background: var(--accent-soft); }

@@ -19,6 +19,13 @@ const record = {
   sp98_maj: '2026-09-29T19:40:00+02:00',
   e85_prix: 0.789,
   e85_maj: 'pas une date',
+  services_service: ['Station de gonflage', 'Lavage manuel', 'Lavage automatique', 'Relais colis', 'Toilettes publiques'],
+  sp95_rupture_type: 'temporaire',
+  sp95_rupture_debut: '2026-09-30T06:00:00+00:00',
+  gplc_rupture_type: 'definitive',
+  gplc_rupture_debut: '2017-09-01T05:18:24+00:00',
+  e85_rupture_type: 'temporaire',
+  e85_rupture_debut: null,
 }
 
 describe('parseFeedRecord', () => {
@@ -37,6 +44,15 @@ describe('parseFeedRecord', () => {
     })
     expect(station!.prices.map(p => p.fuel)).toEqual(['gazole', 'e10'])
     expect(station!.prices[0]!.updatedAt.toISOString()).toBe('2026-09-30T06:12:00.000Z')
+  })
+
+  it('ne garde que les services reconnus, sans doublon', () => {
+    expect(parseFeedRecord(record)!.services).toEqual(['gonflage', 'lavage', 'toilettes'])
+    expect(parseFeedRecord({ ...record, services_service: null })!.services).toEqual([])
+  })
+
+  it('ne garde que les ruptures temporaires datées', () => {
+    expect(parseFeedRecord(record)!.shortages).toEqual([{ fuel: 'sp95', since: new Date('2026-09-30T06:00:00Z') }])
   })
 
   it('déduit le département du code postal, outre-mer compris', () => {

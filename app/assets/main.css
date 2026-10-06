@@ -153,6 +153,7 @@ p { margin: 0 0 .75rem; }
 .list-item { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .75rem 0; border-bottom: 1px solid var(--border); }
 .list-item:last-child { border-bottom: 0; }
 .price { font-size: 1.25rem; font-weight: 700; white-space: nowrap; }
+.station-services { display: flex; gap: .3rem; }
 
 .chart { width: 100%; height: auto; }
 .chart-line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }

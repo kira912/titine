@@ -163,6 +163,9 @@ function remove(id: number) {
                   {{ formatEuro(station.price, 3) }}/L
                   <template v-if="station.localAverage"> · moyenne du coin {{ formatEuro(station.localAverage, 3) }}/L</template>
                 </template>
+                <template v-else-if="station.shortageSince">
+                  En rupture {{ formatSince(station.shortageSince) }}
+                </template>
                 <template v-else>
                   Pas de prix récent pour ce carburant
                 </template>

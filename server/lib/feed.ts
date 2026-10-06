@@ -1,10 +1,11 @@
 import { FUELS, type Fuel } from '../../shared/fuel'
 import { citySlug } from '../../shared/geo'
+import { serviceIds, type ServiceId } from '../../shared/services'
 
 const DATASET = 'https://data.economie.gouv.fr/api/explore/v2.1/catalog/datasets/prix-des-carburants-en-france-flux-instantane-v2'
 const FIELDS = [
-  'id', 'adresse', 'ville', 'cp', 'code_departement', 'geom', 'horaires_automate_24_24',
-  ...FUELS.flatMap(fuel => [`${fuel}_prix`, `${fuel}_maj`]),
+  'id', 'adresse', 'ville', 'cp', 'code_departement', 'geom', 'horaires_automate_24_24', 'services_service',
+  ...FUELS.flatMap(fuel => [`${fuel}_prix`, `${fuel}_maj`, `${fuel}_rupture_debut`, `${fuel}_rupture_type`]),
 ]
 
 /** Flux instantané des prix des carburants (open data, mis à jour toutes les 10 minutes) */
@@ -14,6 +15,12 @@ export interface FeedPrice {
   fuel: Fuel
   price: number
   updatedAt: Date
+}
+
+/** Rupture temporaire : la station vend ce carburant mais n'en a plus (son prix disparaît du flux) */
+export interface FeedShortage {
+  fuel: Fuel
+  since: Date
 }
 
 export interface FeedStation {
@@ -26,7 +33,9 @@ export interface FeedStation {
   postalCode: string
   department: string
   alwaysOpen: boolean
+  services: ServiceId[]
   prices: FeedPrice[]
+  shortages: FeedShortage[]
 }
 
 const text = (value: unknown) => (typeof value === 'string' ? value.trim() : '')
@@ -64,6 +73,13 @@ export function parseFeedRecord(record: Record<string, unknown>): FeedStation | 
     if (typeof price !== 'number' || !(price > 0) || Number.isNaN(updatedAt.getTime())) continue
     prices.push({ fuel, price, updatedAt })
   }
+  // Les ruptures définitives disent seulement que la station ne vend pas ce carburant
+  const shortages: FeedShortage[] = []
+  for (const fuel of FUELS) {
+    const since = new Date(text(record[`${fuel}_rupture_debut`]))
+    if (record[`${fuel}_rupture_type`] !== 'temporaire' || Number.isNaN(since.getTime())) continue
+    shortages.push({ fuel, since })
+  }
 
   return {
     id,
@@ -75,6 +91,8 @@ export function parseFeedRecord(record: Record<string, unknown>): FeedStation | 
     postalCode,
     department,
     alwaysOpen: record.horaires_automate_24_24 === 'Oui',
+    services: serviceIds(record.services_service),
     prices,
+    shortages,
   }
 }

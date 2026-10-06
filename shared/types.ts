@@ -1,4 +1,5 @@
 import type { Fuel } from './fuel'
+import type { ServiceId } from './services'
 
 /** Dates au format ISO court `AAAA-MM-JJ` */
 export type IsoDate = string
@@ -70,8 +71,18 @@ export interface NearbyStation {
   city: string
   postalCode: string
   alwaysOpen: boolean
+  services: ServiceId[]
   price: number
   updatedAt: string
+  distanceKm: number
+}
+
+/** Station en rupture temporaire, renvoyée par `/api/stations/shortages` */
+export interface NearbyShortage {
+  id: number
+  address: string
+  city: string
+  since: string
   distanceKm: number
 }
 
@@ -84,8 +95,11 @@ export interface StationDetail {
   city: string
   postalCode: string
   alwaysOpen: boolean
+  services: ServiceId[]
   /** `null` si la station n'a pas de prix récent pour ce carburant */
   price: number | null
   updatedAt: string | null
+  /** Début de la rupture temporaire en cours pour ce carburant */
+  shortageSince: string | null
   localAverage: number | null
 }
