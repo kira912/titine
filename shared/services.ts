@@ -3,16 +3,16 @@ export const SERVICES = ['gonflage', 'lavage', 'toilettes', 'boutique', 'dab', '
 
 export type ServiceId = typeof SERVICES[number]
 
-export const SERVICE_LABELS: Record<ServiceId, { emoji: string, label: string }> = {
-  'gonflage': { emoji: '🛞', label: 'Gonflage' },
-  'lavage': { emoji: '🧽', label: 'Lavage' },
-  'toilettes': { emoji: '🚻', label: 'Toilettes' },
-  'boutique': { emoji: '🛒', label: 'Boutique' },
-  'dab': { emoji: '🏧', label: 'Distributeur de billets' },
-  'restauration': { emoji: '🥪', label: 'Restauration' },
-  'recharge': { emoji: '🔌', label: 'Recharge électrique' },
-  'atelier': { emoji: '🔧', label: 'Réparation' },
-  'camping-car': { emoji: '🚐', label: 'Aire de camping-cars' },
+export const SERVICE_LABELS: Record<ServiceId, { label: string }> = {
+  'gonflage': { label: 'Gonflage' },
+  'lavage': { label: 'Lavage' },
+  'toilettes': { label: 'Toilettes' },
+  'boutique': { label: 'Boutique' },
+  'dab': { label: 'Distributeur de billets' },
+  'restauration': { label: 'Restauration' },
+  'recharge': { label: 'Recharge électrique' },
+  'atelier': { label: 'Réparation' },
+  'camping-car': { label: 'Aire de camping-cars' },
 }
 
 // Libellés exacts du flux ; les autres services (fioul, relais colis…) ne sont pas repris

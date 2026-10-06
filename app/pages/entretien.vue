@@ -25,10 +25,10 @@ async function submit() {
 
   <div v-else-if="vehicle" class="stack">
     <section>
+      <span class="eyebrow">Compteur actuel · {{ formatKm(vehicle.odometer) }}</span>
       <h1>Entretien</h1>
       <p class="muted" style="margin: 0">
         Un rappel arrive à échéance à la date ou au kilométrage prévu, selon ce qui vient en premier.
-        Compteur actuel : {{ formatKm(vehicle.odometer) }}.
       </p>
     </section>
 
@@ -42,11 +42,8 @@ async function submit() {
       />
     </ul>
 
-    <section class="card">
-      <button v-if="!adding" class="btn btn-ghost btn-block" @click="adding = true">
-        + Ajouter un rappel
-      </button>
-      <form v-else class="form" @submit.prevent="submit">
+    <section v-if="adding" class="card">
+      <form class="form" @submit.prevent="submit">
         <h2>Nouveau rappel</h2>
         <ReminderFields v-model="form" />
         <p class="muted small" style="margin: 0">
@@ -65,20 +62,26 @@ async function submit() {
         </div>
       </form>
     </section>
+    <button v-else class="btn btn-ghost btn-block add" @click="adding = true">
+      <AppIcon name="plus" /> Ajouter un rappel
+    </button>
 
     <section v-if="services.length" class="card">
       <h2>Historique des entretiens</h2>
-      <ul class="list">
-        <li v-for="service in services" :key="service.id" class="list-item">
-          <div>
-            <strong>{{ service.label }}</strong>
-            <div class="muted small">
-              {{ formatDate(service.date) }} · {{ formatKm(service.odometer) }}
-            </div>
-          </div>
-          <span v-if="service.cost !== null" class="price">{{ formatEuro(service.cost) }}</span>
+      <p class="muted small">
+        Chaque entretien fait est tamponné dans le carnet.
+      </p>
+      <ul class="stamps">
+        <li v-for="service in services" :key="service.id" class="stamp">
+          <strong>{{ service.label }}</strong>
+          <span>{{ formatDate(service.date) }}</span>
+          <span>{{ formatKm(service.odometer) }}<template v-if="service.cost !== null"> · {{ formatEuro(service.cost) }}</template></span>
         </li>
       </ul>
     </section>
   </div>
 </template>
+
+<style scoped>
+.add { border-style: dashed; }
+</style>

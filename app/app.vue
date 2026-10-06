@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { APP } from '#shared/app'
+import type { IconName } from '~/utils/icons'
 
-const tabs = [
-  { to: '/', icon: '🏠', label: 'Accueil' },
-  { to: '/plein', icon: '⛽', label: 'Plein' },
-  { to: '/entretien', icon: '🔧', label: 'Entretien' },
-  { to: '/carburant', icon: '📍', label: 'Carburant' },
+const tabs: { to: string, icon: IconName, label: string, main?: boolean }[] = [
+  { to: '/', icon: 'dashboard', label: 'Bord' },
+  { to: '/carburant', icon: 'pin', label: 'Prix' },
+  // Le plein, geste principal, au centre de la planche de bord
+  { to: '/plein', icon: 'pump', label: 'Plein', main: true },
+  { to: '/entretien', icon: 'wrench', label: 'Entretien' },
+  { to: '/bilan', icon: 'medal', label: 'Bilan' },
 ]
 
 const route = useRoute()
@@ -44,17 +47,25 @@ useSeoMeta({
   <NuxtPwaManifest />
   <header class="topbar">
     <NuxtLink to="/" class="brand">
-      <img src="/icon.svg" alt="" width="28" height="28">
+      <img src="/icon.svg" alt="" width="30" height="30">
       <span>{{ APP.name }}</span>
     </NuxtLink>
+    <span class="topbar-tagline">{{ APP.tagline }}</span>
   </header>
   <main class="container">
     <NuxtPage />
   </main>
   <nav class="tabbar" aria-label="Navigation principale">
-    <NuxtLink v-for="tab in tabs" :key="tab.to" :to="tab.to" class="tab">
-      <span aria-hidden="true">{{ tab.icon }}</span>
-      {{ tab.label }}
-    </NuxtLink>
+    <div class="tabbar-inner">
+      <NuxtLink v-for="tab in tabs" :key="tab.to" :to="tab.to" class="tab" :class="{ 'tab-main': tab.main }">
+        <span v-if="tab.main" class="tab-bubble"><AppIcon :name="tab.icon" /></span>
+        <AppIcon v-else :name="tab.icon" />
+        {{ tab.label }}
+      </NuxtLink>
+    </div>
   </nav>
 </template>
+
+<style scoped>
+.topbar-tagline { color: var(--dash-muted); font: 500 .7rem/1 var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
+</style>

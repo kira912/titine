@@ -5,16 +5,16 @@ const form = defineModel<{ label: string, intervalKm: string, intervalMonths: st
 
 <template>
   <label class="field">
-    Intitulé
+    <span>Intitulé</span>
     <input v-model="form.label" type="text" autocomplete="off" placeholder="Courroie de distribution" required>
   </label>
   <div class="fields">
     <label class="field">
-      Tous les … km
+      <span>Tous les … km</span>
       <input v-model="form.intervalKm" type="text" inputmode="numeric" placeholder="15 000">
     </label>
     <label class="field">
-      Tous les … mois
+      <span>Tous les … mois</span>
       <input v-model="form.intervalMonths" type="text" inputmode="numeric" placeholder="12">
     </label>
   </div>

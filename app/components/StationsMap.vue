@@ -157,7 +157,7 @@ watch(() => props.selected, renderSelection)
 </template>
 
 <style scoped>
-.map-frame { position: relative; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: #e8eaed; }
+.map-frame { position: relative; overflow: hidden; border: 1px solid var(--border); border-radius: var(--radius); background: var(--ctp-surface0); }
 .map { height: min(52vh, 420px); min-height: 280px; }
 .map-error { position: absolute; inset: 0; display: grid; place-items: center; margin: 0; padding: 1rem; text-align: center; }
 
@@ -167,10 +167,10 @@ watch(() => props.selected, renderSelection)
   padding: 4px 9px;
   border: 0;
   border-radius: 999px;
-  background: #fff;
-  color: #202124;
-  box-shadow: 0 1px 4px rgb(0 0 0 / .3);
-  font: 600 13px/1.2 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--ctp-crust);
+  color: var(--ctp-text);
+  box-shadow: 0 1px 4px rgb(0 0 0 / .4);
+  font: 700 14px/1.2 var(--font-display);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
   cursor: pointer;
@@ -186,23 +186,24 @@ watch(() => props.selected, renderSelection)
   transform: translateX(-50%) rotate(45deg);
   box-shadow: 2px 2px 2px rgb(0 0 0 / .12);
 }
-.map :deep(.price-pin-best) { background: #188038; color: #fff; }
-.map :deep(.price-pin-active) { background: #1a73e8; color: #fff; z-index: 1; }
-.map :deep(.price-pin:focus-visible) { outline: 2px solid #1a73e8; outline-offset: 2px; }
+.map :deep(.price-pin-best) { background: var(--ctp-green); color: var(--ctp-crust); }
+.map :deep(.price-pin-active) { background: var(--ctp-yellow); color: var(--ctp-crust); z-index: 1; }
+.map :deep(.price-pin:focus-visible) { outline: 2px solid var(--ctp-yellow); outline-offset: 2px; }
 
 .map :deep(.user-dot) {
   width: 18px;
   height: 18px;
-  border: 3px solid #fff;
+  border: 3px solid var(--ctp-crust);
   border-radius: 50%;
-  background: #1a73e8;
-  box-shadow: 0 0 0 8px rgb(26 115 232 / .2), 0 1px 4px rgb(0 0 0 / .3);
+  background: var(--ctp-blue);
+  box-shadow: 0 0 0 8px color-mix(in srgb, var(--ctp-blue) 30%, transparent), 0 1px 4px rgb(0 0 0 / .3);
 }
 
 .map :deep(.maplibregl-popup) { z-index: 2; }
-.map :deep(.maplibregl-popup-content) { padding: .6rem .75rem; border-radius: 10px; color: #202124; font: 14px/1.4 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; }
+.map :deep(.maplibregl-popup-content) { padding: .6rem .75rem; border-radius: 10px; background: var(--ctp-mantle); color: var(--ctp-text); font: 14px/1.4 var(--font-body); }
+.map :deep(.maplibregl-popup-tip) { border-top-color: var(--ctp-mantle); }
 .map :deep(.station-popup) { display: grid; gap: 2px; }
-.map :deep(.station-popup strong) { font-size: 1.05rem; }
-.map :deep(.station-popup .muted) { color: #5f6368; font-size: .8rem; }
-.map :deep(.station-popup a) { color: #1a73e8; font-weight: 600; text-decoration: none; margin-top: 2px; }
+.map :deep(.station-popup strong) { color: var(--ctp-yellow); font: 700 1.2rem var(--font-display); }
+.map :deep(.station-popup .muted) { color: var(--ctp-subtext0); font-size: .8rem; }
+.map :deep(.station-popup a) { color: var(--ctp-yellow); font-weight: 600; text-decoration: none; margin-top: 2px; }
 </style>

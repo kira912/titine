@@ -280,23 +280,29 @@ function remove(id: number) {
   <NoVehicle v-if="ready && !vehicle" />
 
   <div v-else-if="vehicle" class="stack">
-    <section class="card">
+    <section>
+      <span class="eyebrow">{{ vehicle.make }} {{ vehicle.model }}</span>
       <h1>Nouveau plein</h1>
-      <div v-if="resumedAt" class="row resumed">
-        <span class="small">⏸️ Plein commencé {{ formatSince(resumedAt) }} : il ne reste qu'à le compléter.</span>
-        <button type="button" class="btn btn-small btn-ghost" @click="abandonDraft">
-          Abandonner
-        </button>
-      </div>
-      <form class="form" @submit.prevent="submit">
-        <div class="station-pick">
-          <template v-if="station">
-            <div>
+    </section>
+
+    <div v-if="resumedAt" class="row note note-accent">
+      <span class="with-icon small"><AppIcon name="pause" /> Plein commencé {{ formatSince(resumedAt) }} : il ne reste qu'à le compléter.</span>
+      <button type="button" class="btn btn-small btn-ghost" @click="abandonDraft">
+        Abandonner
+      </button>
+    </div>
+
+    <form class="form" @submit.prevent="submit">
+      <section class="station" :class="{ 'station-set': station }">
+        <template v-if="station">
+          <div class="station-main">
+            <span class="station-icon"><AppIcon name="pump" /></span>
+            <div style="min-width: 0">
               <strong>{{ formatStation(station) }}</strong>
               <div class="muted small">
                 <template v-if="station.price">
-                  {{ formatEuro(station.price, 3) }}/L
-                  <template v-if="station.localAverage"> · moyenne du coin {{ formatEuro(station.localAverage, 3) }}/L</template>
+                  <template v-if="station.localAverage">Moyenne du coin {{ formatEuro(station.localAverage, 3) }}/L</template>
+                  <template v-else>Prix affiché par la station</template>
                 </template>
                 <template v-else-if="station.shortageSince">
                   En rupture {{ formatSince(station.shortageSince) }}
@@ -305,138 +311,193 @@ function remove(id: number) {
                   Pas de prix récent pour ce carburant
                 </template>
               </div>
-              <StationReports :station-id="station.id" :fuel="vehicle.fuel" :reports="station.reports" />
             </div>
+            <PumpPrice v-if="station.price" :value="station.price" tone="dark" />
+          </div>
+          <div class="row">
+            <StationReports :station-id="station.id" :fuel="vehicle.fuel" :reports="station.reports" />
             <button type="button" class="btn btn-small btn-ghost" @click="clearStation">
               Changer
             </button>
-          </template>
-          <template v-else-if="nearby">
-            <span class="muted small">Dans quelle station ?</span>
-            <div class="station-choices">
-              <button v-for="place in nearby" :key="place.id" type="button" class="btn btn-small btn-ghost" @click="loadStation(place.id)">
-                {{ formatStation(place) }} · {{ formatNumber(place.distanceKm, 1) }} km · {{ formatEuro(place.price, 3) }}
-              </button>
-            </div>
-          </template>
-          <button v-else type="button" class="btn btn-small btn-ghost" :disabled="stationPending" @click="findNearby">
-            {{ stationPending ? 'Recherche…' : '📍 Choisir la station' }}
-          </button>
-          <p v-if="stationError" class="muted small" style="margin: 0; flex-basis: 100%">
-            {{ stationError }}
-          </p>
-        </div>
-        <div class="fields">
-          <label class="field">
-            Litres
-            <input v-model="form.liters" type="text" inputmode="decimal" placeholder="42,5" autofocus required @input="onAmountInput('liters', $event)">
-          </label>
-          <label class="field">
-            Prix payé (€)
-            <input v-model="form.totalPrice" type="text" inputmode="decimal" placeholder="72,30" required @input="onAmountInput('totalPrice', $event)">
-          </label>
-          <div class="field">
-            <label for="odometer">Kilométrage</label>
-            <input
-              id="odometer"
-              ref="odometerInput"
-              v-model="form.odometer"
-              type="text"
-              inputmode="numeric"
-              :placeholder="formatNumber(odometerEstimate ?? vehicle.odometer)"
-              required
-            >
-            <button v-if="odometerEstimate && !form.odometer" type="button" class="estimate small" @click="useEstimate">
-              ≈ {{ formatKm(odometerEstimate) }} ? Corriger la fin
+          </div>
+        </template>
+        <template v-else-if="nearby">
+          <span class="eyebrow">Dans quelle station ?</span>
+          <div class="station-choices">
+            <button v-for="place in nearby" :key="place.id" type="button" class="station-choice" @click="loadStation(place.id)">
+              <span>
+                <strong>{{ formatStation(place) }}</strong>
+                <span class="muted small" style="display: block">{{ formatNumber(place.distanceKm, 1) }} km</span>
+              </span>
+              <PumpPrice :value="place.price" />
             </button>
           </div>
-        </div>
-        <p v-if="station?.price && !(edited.liters && edited.totalPrice)" class="muted small" style="margin: 0">
-          Remplis les litres <em>ou</em> le montant : l'autre se calcule au prix de la station.
-        </p>
-        <div class="row">
-          <label class="field-inline">
-            <input v-model="form.full" type="checkbox">
-            Plein complet
-          </label>
-          <label class="field-inline">
-            <span class="muted small">Date</span>
-            <input v-model="form.date" type="date" :max="today()" class="date" required>
-          </label>
-        </div>
-        <p v-if="pricePerLiter" class="muted small" style="margin: 0">
-          Soit {{ formatEuro(pricePerLiter, 3) }} le litre.
-        </p>
-        <p v-if="priceMismatch" class="badge badge-soon" style="justify-self: start; white-space: normal">
-          Le prix au litre est très éloigné de celui affiché par la station ({{ formatEuro(station!.price!, 3) }}) : vérifie ta saisie.
-          Sinon, ce plein ne comptera pas dans tes économies.
-        </p>
-        <p v-if="station && !comparable" class="muted small" style="margin: 0">
-          La comparaison avec les prix du coin ne se fait que pour un plein du jour.
-        </p>
-        <p v-if="!form.full" class="muted small" style="margin: 0">
-          Un plein partiel est compté dans la consommation au prochain plein complet.
-        </p>
-        <p v-if="error" class="error" role="alert">
-          {{ error }}
-        </p>
-        <button class="btn btn-primary btn-block" :disabled="saving">
-          Enregistrer le plein
+        </template>
+        <button v-else type="button" class="btn btn-ghost btn-block" :disabled="stationPending" @click="findNearby">
+          <AppIcon name="locate" /> {{ stationPending ? 'Recherche…' : 'Choisir la station' }}
         </button>
-        <button v-if="canSaveForLater" type="button" class="btn btn-ghost btn-block" @click="saveForLater">
-          ⏸️ Compléter plus tard
-        </button>
-        <p v-if="saved" class="badge badge-ok" role="status" style="justify-self: start">
-          {{ saved }}
+        <p v-if="stationError" class="muted small" style="margin: 0">
+          {{ stationError }}
         </p>
-        <NuxtLink v-for="badge in unlocked" :key="badge.id" to="/bilan" class="unlocked" role="status">
-          <span aria-hidden="true">{{ badge.emoji }}</span>
-          <span>Nouveau badge : <strong>{{ badge.title }}</strong></span>
-        </NuxtLink>
-      </form>
-    </section>
+      </section>
 
-    <section v-if="history.length" class="card">
+      <div class="fields amounts">
+        <label class="field">
+          <span>Litres</span>
+          <span class="unit-input">
+            <input v-model="form.liters" type="text" inputmode="decimal" placeholder="42,5" autofocus required @input="onAmountInput('liters', $event)">
+            <span aria-hidden="true">L</span>
+          </span>
+        </label>
+        <label class="field">
+          <span>Prix payé</span>
+          <span class="unit-input">
+            <input v-model="form.totalPrice" type="text" inputmode="decimal" placeholder="72,30" required @input="onAmountInput('totalPrice', $event)">
+            <span aria-hidden="true">€</span>
+          </span>
+        </label>
+      </div>
+      <p v-if="station?.price && !(edited.liters && edited.totalPrice)" class="muted small" style="margin: -.4rem 0 0">
+        Remplis les litres <em>ou</em> le montant : l'autre se calcule au prix de la station.
+      </p>
+
+      <div class="field">
+        <label for="odometer">Kilométrage au compteur</label>
+        <span class="odometer-input">
+          <input
+            id="odometer"
+            ref="odometerInput"
+            v-model="form.odometer"
+            type="text"
+            inputmode="numeric"
+            :placeholder="formatNumber(odometerEstimate ?? vehicle.odometer)"
+            required
+          >
+          <span aria-hidden="true">km</span>
+        </span>
+        <button v-if="odometerEstimate && !form.odometer" type="button" class="link-btn small estimate" @click="useEstimate">
+          ≈ {{ formatKm(odometerEstimate) }} ? Corriger la fin
+        </button>
+      </div>
+
+      <div class="row">
+        <label class="switch">
+          <input v-model="form.full" type="checkbox">
+          Plein complet
+        </label>
+        <label class="field-inline">
+          <span class="field-label">Date</span>
+          <input v-model="form.date" type="date" :max="today()" class="input date" required>
+        </label>
+      </div>
+
+      <p v-if="pricePerLiter" class="per-liter">
+        <span class="eyebrow" style="margin: 0">Soit le litre</span>
+        <PumpPrice :value="pricePerLiter" />
+      </p>
+      <p v-if="priceMismatch" class="note note-warn" style="margin: 0">
+        Le prix au litre est très éloigné de celui affiché par la station ({{ formatEuro(station!.price!, 3) }}) : vérifie ta saisie.
+        Sinon, ce plein ne comptera pas dans tes économies.
+      </p>
+      <p v-if="station && !comparable" class="muted small" style="margin: 0">
+        La comparaison avec les prix du coin ne se fait que pour un plein du jour.
+      </p>
+      <p v-if="!form.full" class="muted small" style="margin: 0">
+        Un plein partiel est compté dans la consommation au prochain plein complet.
+      </p>
+      <p v-if="error" class="error" role="alert" style="margin: 0">
+        {{ error }}
+      </p>
+      <button class="btn btn-primary btn-block btn-large" :disabled="saving">
+        <AppIcon name="check" /> Enregistrer le plein
+      </button>
+      <button v-if="canSaveForLater" type="button" class="btn btn-ghost btn-block" @click="saveForLater">
+        <AppIcon name="pause" /> Compléter plus tard
+      </button>
+      <p v-if="saved" class="note note-ok with-icon" role="status" style="margin: 0">
+        <AppIcon name="check" /> <span>{{ saved }}</span>
+      </p>
+      <NuxtLink v-for="badge in unlocked" :key="badge.id" to="/bilan" class="unlocked" role="status">
+        <span aria-hidden="true">{{ badge.emoji }}</span>
+        <span>Nouveau badge : <strong>{{ badge.title }}</strong></span>
+      </NuxtLink>
+    </form>
+
+    <section v-if="history.length" class="history">
       <h2>Historique</h2>
-      <ul class="list">
-        <li v-for="fill in history" :key="fill.id" class="list-item">
-          <div>
-            <strong>{{ formatDate(fill.date) }}</strong> · {{ formatKm(fill.odometer) }}
-            <div class="muted small">
-              {{ formatNumber(fill.liters, 2) }} L · {{ formatEuro(fill.totalPrice) }} · {{ formatEuro(fill.totalPrice / fill.liters, 3) }}/L
-              <template v-if="!fill.full"> · partiel</template>
+      <div class="ticket">
+        <div class="ticket-head">
+          {{ history.length }} plein{{ history.length > 1 ? 's' : '' }} · {{ vehicle.make }} {{ vehicle.model }}
+        </div>
+        <ul class="list">
+          <li v-for="fill in history" :key="fill.id" class="ticket-entry">
+            <div class="ticket-line">
+              <span class="ticket-strong">{{ formatDate(fill.date) }}</span>
+              <span>{{ formatKm(fill.odometer) }}</span>
             </div>
-            <div v-if="fill.station" class="muted small">
-              {{ formatStation(fill.station) }}
-              <span v-if="fill.saving !== null" class="badge" :class="fill.saving >= 0 ? 'badge-ok' : 'badge-soon'" :title="savingLabel(fill.saving)">
-                {{ fill.saving >= 0 ? '−' : '+' }}{{ formatEuro(Math.abs(fill.saving)) }}
+            <div class="ticket-line">
+              <span>{{ formatNumber(fill.liters, 2) }} L × {{ formatNumber(fill.totalPrice / fill.liters, 3) }}<template v-if="!fill.full"> · partiel</template></span>
+              <span class="ticket-strong">{{ formatEuro(fill.totalPrice) }}</span>
+            </div>
+            <div class="ticket-line">
+              <span class="muted">
+                <template v-if="fill.station">{{ formatStation(fill.station) }}</template>
+                <span v-if="fill.saving !== null" class="badge badge-plain" :class="fill.saving >= 0 ? 'badge-ok' : 'badge-soon'" :title="savingLabel(fill.saving)">
+                  {{ fill.saving >= 0 ? '−' : '+' }}{{ formatEuro(Math.abs(fill.saving)) }}
+                </span>
+              </span>
+              <span class="row" style="flex-wrap: nowrap; gap: .4rem">
+                <span v-if="consumptionByOdometer.has(fill.odometer)" class="ticket-consumption">
+                  {{ formatNumber(consumptionByOdometer.get(fill.odometer)!, 1) }} L/100
+                </span>
+                <button class="btn btn-icon btn-small btn-danger" :aria-label="`Supprimer le plein du ${formatDate(fill.date)}`" @click="remove(fill.id)">
+                  <AppIcon name="trash" />
+                </button>
               </span>
             </div>
-          </div>
-          <div class="row" style="flex-wrap: nowrap">
-            <span v-if="consumptionByOdometer.has(fill.odometer)" class="price">
-              {{ formatNumber(consumptionByOdometer.get(fill.odometer)!, 1) }}
-              <span class="muted small" style="font-weight: 400">L/100</span>
-            </span>
-            <button class="btn btn-small btn-danger" :aria-label="`Supprimer le plein du ${formatDate(fill.date)}`" @click="remove(fill.id)">
-              ✕
-            </button>
-          </div>
-        </li>
-      </ul>
+          </li>
+        </ul>
+      </div>
     </section>
   </div>
 </template>
 
 <style scoped>
-.unlocked { display: flex; align-items: center; gap: .6rem; padding: .6rem .9rem; border-radius: 12px; background: var(--accent-soft); color: var(--text); text-decoration: none; animation: pop .4s ease-out; }
+.with-icon { display: inline-flex; align-items: center; gap: .5rem; }
+.unlocked { display: flex; align-items: center; gap: .6rem; padding: .6rem .9rem; border-radius: var(--radius-small); background: var(--accent-soft); color: var(--text); text-decoration: none; animation: pop .4s ease-out; }
 .unlocked > span:first-child { font-size: 1.5rem; }
 @keyframes pop { from { transform: scale(.9); opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { .unlocked { animation: none; } }
-.resumed { margin-bottom: .75rem; padding: .6rem .8rem; border-radius: 12px; background: var(--accent-soft); }
-.estimate { justify-self: start; margin-top: .3rem; padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; }
-.station-pick { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
-.station-choices { display: grid; gap: .4rem; flex-basis: 100%; }
-.station-choices .btn { justify-content: flex-start; text-align: left; height: auto; padding-block: .4rem; }
-.field-inline .date { width: auto; min-height: 40px; padding: 0 .6rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; }
+
+.station { display: grid; gap: .6rem; padding: 1rem; border: 1px dashed var(--border); border-radius: var(--radius); }
+.station-set { border-style: solid; background: var(--surface); }
+.station-main { display: flex; align-items: center; gap: .75rem; }
+.station-main > div { flex: 1; }
+.station-icon { display: grid; place-items: center; width: 40px; height: 40px; flex-shrink: 0; border-radius: var(--radius-small); background: var(--accent); color: var(--accent-contrast); }
+.station-choices { display: grid; gap: .4rem; }
+.station-choice { display: flex; align-items: center; justify-content: space-between; gap: .75rem; padding: .6rem .75rem; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--surface); color: var(--text); font: inherit; text-align: left; cursor: pointer; }
+.station-choice:hover { border-color: var(--accent); }
+
+.unit-input, .odometer-input { position: relative; display: block; }
+.unit-input > span, .odometer-input > span { position: absolute; right: .9rem; top: 50%; transform: translateY(-50%); color: var(--muted); font: 600 1.1rem var(--font-display); pointer-events: none; }
+.amounts input { min-height: 60px; padding-right: 2.2rem; font: 700 1.8rem var(--font-display); font-variant-numeric: tabular-nums; }
+/* Le kilométrage se tape dans un compteur */
+.odometer-input input {
+  min-height: 58px;
+  padding-right: 3rem;
+  border: 1px solid var(--dash-line);
+  border-radius: var(--radius-small);
+  background: var(--dash);
+  color: var(--dash-glow);
+  font: 500 1.6rem var(--font-mono);
+  letter-spacing: .18em;
+}
+.odometer-input input:focus { background: var(--dash); box-shadow: 0 0 0 2px var(--accent); }
+.odometer-input > span { font: 500 .8rem var(--font-mono); letter-spacing: .08em; text-transform: uppercase; }
+.estimate { justify-self: start; margin-top: .2rem; }
+.date { width: auto; min-height: 40px; }
+.per-liter { display: flex; align-items: baseline; justify-content: space-between; margin: 0; padding: .6rem 0; border-block: 1px dashed var(--border); }
+
+.history h2 { margin-bottom: .75rem; }
+.ticket-consumption { padding: .1rem .4rem; border-radius: 3px; background: var(--dash); color: var(--dash-glow); white-space: nowrap; }
+.ticket .badge { margin-left: .3rem; }
 </style>

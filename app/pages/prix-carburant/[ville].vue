@@ -2,6 +2,7 @@
 import { APP } from '#shared/app'
 import { FUELS, FUEL_LABELS, FUEL_SUBJECTS, type Fuel } from '#shared/fuel'
 import { SERVICE_LABELS } from '#shared/services'
+import { SERVICE_ICONS } from '~/utils/icons'
 
 const route = useRoute()
 const slug = String(route.params.ville)
@@ -94,7 +95,7 @@ useJsonLd(() => ({
 
 <template>
   <div v-if="city" class="stack">
-    <nav aria-label="Fil d'Ariane" class="small">
+    <nav aria-label="Fil d'Ariane" class="breadcrumbs">
       <NuxtLink to="/">Accueil</NuxtLink> ›
       <NuxtLink to="/prix-carburant">Prix des carburants</NuxtLink> ›
       <span aria-current="page">{{ name }}</span>
@@ -109,17 +110,13 @@ useJsonLd(() => ({
     </section>
 
     <template v-if="fuels.length">
-      <section class="stats" aria-label="Prix les plus bas">
-        <div v-for="entry in fuels" :key="entry.fuel" class="card">
-          <div class="muted small">
-            {{ FUEL_LABELS[entry.fuel] }} le moins cher
-          </div>
-          <div class="stat-value">
-            {{ formatEuro(entry.best, 3) }}
-          </div>
-          <div class="muted small">
-            {{ entry.bestAddress }}
-          </div>
+      <!-- Le totem de la station : un carburant par ligne, le prix le plus bas de la commune -->
+      <section class="dashboard totem" aria-label="Prix les plus bas">
+        <span class="eyebrow">Le moins cher à {{ name }}</span>
+        <div v-for="entry in fuels" :key="entry.fuel" class="totem-row">
+          <FuelTag :fuel="entry.fuel" label class="totem-fuel" />
+          <span class="totem-address">{{ entry.bestAddress }}</span>
+          <PumpPrice :value="entry.best" class="totem-price" />
         </div>
       </section>
 
@@ -143,7 +140,7 @@ useJsonLd(() => ({
                   Station
                 </th>
                 <th v-for="fuel in columns" :key="fuel" scope="col">
-                  {{ FUEL_LABELS[fuel] }}
+                  <span class="th-fuel"><FuelTag :fuel="fuel" />{{ FUEL_LABELS[fuel] }}</span>
                 </th>
               </tr>
             </thead>
@@ -152,8 +149,8 @@ useJsonLd(() => ({
                 <td>
                   {{ station.address }}
                   <span v-if="station.alwaysOpen" class="muted small"> · 24 h/24</span>
-                  <span v-if="station.services.length" class="station-services">
-                    <span v-for="service in station.services" :key="service" :title="SERVICE_LABELS[service].label" role="img" :aria-label="SERVICE_LABELS[service].label">{{ SERVICE_LABELS[service].emoji }}</span>
+                  <span v-if="station.services.length" class="station-services" style="margin-left: .4rem">
+                    <span v-for="service in station.services" :key="service" :title="SERVICE_LABELS[service].label" role="img" :aria-label="SERVICE_LABELS[service].label"><AppIcon :name="SERVICE_ICONS[service]" /></span>
                   </span>
                 </td>
                 <td v-for="fuel in columns" :key="fuel" :class="{ best: station.prices[fuel]?.price === bestPrice[fuel] }">
@@ -205,7 +202,7 @@ useJsonLd(() => ({
       </p>
       <div class="row" style="justify-content: flex-start">
         <NuxtLink to="/carburant" class="btn btn-primary">
-          📍 Autour de moi
+          <AppIcon name="locate" /> Autour de moi
         </NuxtLink>
         <NuxtLink to="/" class="btn btn-ghost">
           Créer mon carnet
@@ -214,3 +211,12 @@ useJsonLd(() => ({
     </section>
   </div>
 </template>
+
+<style scoped>
+.totem { display: grid; gap: .1rem; }
+.totem-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .75rem; padding: .6rem 0; border-top: 1px solid var(--dash-line); }
+.totem-fuel { color: var(--dash-text); --fuel-bg: var(--dash); }
+.totem-address { overflow: hidden; color: var(--dash-muted); font-size: .85rem; text-overflow: ellipsis; white-space: nowrap; }
+.totem-price { color: var(--dash-glow); font-size: 1.8rem; text-shadow: 0 0 14px color-mix(in srgb, var(--ctp-yellow) 35%, transparent); }
+.th-fuel { display: inline-flex; flex-direction: column; align-items: flex-end; gap: .25rem; font-size: .8rem; }
+</style>

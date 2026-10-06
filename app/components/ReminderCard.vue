@@ -64,20 +64,21 @@ const due = computed(() => formatDue(props.status))
 </script>
 
 <template>
-  <li class="card stack" :class="`card-${status.level}`">
-    <div>
+  <li class="card stack reminder" :class="`card-${status.level}`">
+    <div class="reminder-head">
       <div class="row">
         <h2>{{ reminder.label }}</h2>
         <span class="badge" :class="`badge-${status.level}`">{{ LEVEL_LABELS[status.level] }}</span>
       </div>
-      <p v-if="due" style="margin: 0">
+      <p v-if="due" class="reminder-due">
         {{ due }}
       </p>
       <p v-else-if="reminder.kind === 'controle-technique'" class="muted" style="margin: 0">
         Renseigne la date de mise en circulation dans
         <NuxtLink to="/vehicule">ton véhicule</NuxtLink>, ou note ton dernier contrôle.
       </p>
-      <p class="muted small" style="margin: 0">
+      <ReminderGauge :reminder="reminder" :status="status" />
+      <p class="eyebrow" style="margin: 0">
         {{ formatInterval(reminder) }}
         <template v-if="reminder.lastDate"> · dernier point le {{ formatDate(reminder.lastDate) }}</template>
       </p>
@@ -85,28 +86,28 @@ const due = computed(() => formatDue(props.status))
 
     <div class="row" style="justify-content: flex-start">
       <button class="btn btn-small btn-primary" :aria-expanded="panel === 'done'" @click="open('done')">
-        C'est fait
+        <AppIcon name="check" /> C'est fait
       </button>
       <button class="btn btn-small btn-ghost" :aria-expanded="panel === 'edit'" @click="open('edit')">
-        Modifier
+        <AppIcon name="edit" /> Modifier
       </button>
-      <button class="btn btn-small btn-danger" @click="remove">
-        Supprimer
+      <button class="btn btn-small btn-icon btn-danger" :aria-label="`Supprimer le rappel ${reminder.label}`" @click="remove">
+        <AppIcon name="trash" />
       </button>
     </div>
 
-    <form v-if="panel === 'done'" class="form" @submit.prevent="submitDone">
+    <form v-if="panel === 'done'" class="form panel" @submit.prevent="submitDone">
       <div class="fields">
         <label class="field">
-          Date
+          <span>Date</span>
           <input v-model="done.date" type="date" :max="today()" required>
         </label>
         <label class="field">
-          Kilométrage
+          <span>Kilométrage</span>
           <input v-model="done.odometer" type="text" inputmode="numeric" required>
         </label>
         <label class="field">
-          Coût en € (facultatif)
+          <span>Coût en € (facultatif)</span>
           <input v-model="done.cost" type="text" inputmode="decimal">
         </label>
       </div>
@@ -118,7 +119,7 @@ const due = computed(() => formatDue(props.status))
       </button>
     </form>
 
-    <form v-else-if="panel === 'edit'" class="form" @submit.prevent="submitEdit">
+    <form v-else-if="panel === 'edit'" class="form panel" @submit.prevent="submitEdit">
       <ReminderFields v-model="edit" />
       <p v-if="error" class="error" role="alert">
         {{ error }}
@@ -129,3 +130,10 @@ const due = computed(() => formatDue(props.status))
     </form>
   </li>
 </template>
+
+<style scoped>
+.reminder-head { display: grid; gap: .5rem; }
+.reminder-head h2 { margin: 0; }
+.reminder-due { margin: 0; font-weight: 500; }
+.panel { padding-top: 1rem; border-top: 1px dashed var(--border); }
+</style>

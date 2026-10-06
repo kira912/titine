@@ -11,7 +11,11 @@ import { POPULAR_CITIES } from '#shared/cities'
       </li>
     </ul>
     <p class="small" style="margin: .75rem 0 0">
-      <NuxtLink to="/prix-carburant">Toutes les villes →</NuxtLink>
+      <NuxtLink to="/prix-carburant" class="all-cities">Toutes les villes <AppIcon name="arrow" /></NuxtLink>
     </p>
   </section>
 </template>
+
+<style scoped>
+.all-cities { display: inline-flex; align-items: center; gap: .3rem; font-weight: 600; }
+</style>

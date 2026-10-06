@@ -3,6 +3,6 @@ export const APP = {
   name: 'Titine',
   tagline: 'Le carnet de ta voiture',
   description: 'Suis tes pleins, ta consommation et tes entretiens, et trouve le carburant le moins cher autour de toi.',
-  themeColor: '#1d4ed8',
-  backgroundColor: '#f8fafc',
+  themeColor: '#232634',
+  backgroundColor: '#303446',
 } as const

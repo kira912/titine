@@ -48,7 +48,7 @@ async function send(kind: ReportKind) {
 
 <template>
   <div class="reports small">
-    <span v-for="summary in summaries" :key="summary" class="badge badge-soon">⚠️ {{ summary }}</span>
+    <span v-for="summary in summaries" :key="summary" class="badge badge-soon">{{ summary }}</span>
     <button v-if="!open" type="button" class="link" @click="open = true; message = ''">
       Signaler un problème
     </button>
@@ -68,5 +68,6 @@ async function send(kind: ReportKind) {
 .reports { display: flex; flex-wrap: wrap; align-items: center; gap: .35rem .6rem; margin-top: .25rem; }
 .choices { display: grid; gap: .35rem; flex-basis: 100%; }
 .choices .btn { justify-content: flex-start; }
-.link { padding: 0; border: 0; background: none; color: var(--accent); font: inherit; text-decoration: underline; cursor: pointer; justify-self: start; }
+.link { padding: 0; border: 0; background: none; color: var(--muted); font: inherit; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; justify-self: start; }
+.link:hover { color: var(--text); }
 </style>

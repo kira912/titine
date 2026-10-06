@@ -61,7 +61,9 @@ async function importFile(event: Event) {
 
 <template>
   <section id="sauvegarde" class="card">
-    <h2>Sauvegarde</h2>
+    <h2 class="with-icon">
+      <AppIcon name="save" /> Sauvegarde
+    </h2>
     <p class="muted small">
       Ton carnet n'existe que sur cet appareil. Garde-en une copie ailleurs : en cas de changement de téléphone,
       de données effacées ou de navigateur qui fait le ménage, tu pourras tout récupérer.
@@ -71,14 +73,14 @@ async function importFile(event: Event) {
     </p>
     <div class="row" style="justify-content: flex-start">
       <button type="button" class="btn btn-primary" :disabled="pending" @click="exportFile">
-        💾 Sauvegarder mon carnet
+        <AppIcon name="save" /> Sauvegarder mon carnet
       </button>
       <label class="btn btn-ghost" :class="{ disabled: pending }">
-        Restaurer une sauvegarde
+        <AppIcon name="upload" /> Restaurer une sauvegarde
         <input type="file" accept="application/json,.json" class="visually-hidden" :disabled="pending" @change="importFile">
       </label>
     </div>
-    <p v-if="message" class="badge badge-ok" role="status" style="margin: .75rem 0 0; white-space: normal">
+    <p v-if="message" class="note note-ok" role="status" style="margin: .75rem 0 0">
       {{ message }}
     </p>
     <p v-if="error" class="error" role="alert" style="margin: .75rem 0 0">
@@ -88,7 +90,7 @@ async function importFile(event: Event) {
 </template>
 
 <style scoped>
-.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.with-icon { display: flex; align-items: center; gap: .5rem; }
 label.btn { position: relative; cursor: pointer; }
 label.btn:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 .disabled { opacity: .6; pointer-events: none; }

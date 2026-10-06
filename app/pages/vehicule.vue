@@ -9,15 +9,20 @@ const saved = ref(false)
   <NoVehicle v-if="ready && !vehicle" />
 
   <div v-else-if="vehicle" class="stack">
-    <section class="card">
+    <section class="card registration">
+      <span class="eyebrow">Certificat d'immatriculation, en plus simple</span>
       <h1>Mon véhicule</h1>
-    <!-- La clé recrée le formulaire avec les valeurs enregistrées après chaque sauvegarde -->
-    <VehicleForm :key="JSON.stringify(vehicle)" :vehicle="vehicle" submit-label="Enregistrer" @saved="saved = true" />
-    <p v-if="saved" class="badge badge-ok" role="status" style="margin-top: .9rem">
-      Modifications enregistrées.
-    </p>
+      <!-- La clé recrée le formulaire avec les valeurs enregistrées après chaque sauvegarde -->
+      <VehicleForm :key="JSON.stringify(vehicle)" :vehicle="vehicle" submit-label="Enregistrer" @saved="saved = true" />
+      <p v-if="saved" class="note note-ok" role="status" style="margin: .9rem 0 0">
+        Modifications enregistrées.
+      </p>
     </section>
 
     <BackupCard />
   </div>
 </template>
+
+<style scoped>
+.registration { border-top: 4px solid var(--ctp-teal); }
+</style>

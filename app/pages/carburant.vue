@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { FUELS, FUEL_LABELS, type Fuel } from '#shared/fuel'
 import { SERVICES, SERVICE_LABELS, type ServiceId } from '#shared/services'
+import { SERVICE_ICONS } from '~/utils/icons'
 import type { NearbyShortage, NearbyStation } from '#shared/types'
 
 const title = 'Station essence la moins chère autour de moi'
@@ -108,6 +109,7 @@ const saving = computed(() => {
 <template>
   <div class="stack">
     <section>
+      <span class="eyebrow">Prix relevés toutes les 30 minutes</span>
       <h1>Carburant le moins cher autour de moi</h1>
       <p class="muted" style="margin: 0">
         Les prix relevés par les stations-service autour de toi, du moins cher au plus cher, sur une carte.
@@ -116,37 +118,53 @@ const saving = computed(() => {
     </section>
 
     <section class="card form">
-      <div class="fields">
-        <label class="field">
+      <fieldset class="group">
+        <legend class="field-label">
           Carburant
-          <select v-model="selectedFuel">
-            <option v-for="option in FUELS" :key="option" :value="option">{{ FUEL_LABELS[option] }}</option>
-          </select>
-        </label>
-        <label class="field">
+        </legend>
+        <div class="fuels">
+          <button
+            v-for="option in FUELS"
+            :key="option"
+            type="button"
+            class="fuel-option"
+            :aria-pressed="option === selectedFuel"
+            @click="selectedFuel = option"
+          >
+            <FuelTag :fuel="option" label />
+          </button>
+        </div>
+      </fieldset>
+      <fieldset class="group">
+        <legend class="field-label">
           Rayon
-          <select v-model.number="radius">
-            <option v-for="km in RADII" :key="km" :value="km">{{ km }} km</option>
-          </select>
-        </label>
-      </div>
-      <fieldset class="services">
-        <legend class="small">
+        </legend>
+        <div class="segmented">
+          <button v-for="km in RADII" :key="km" type="button" :aria-pressed="km === radius" @click="radius = km">
+            {{ km }} km
+          </button>
+        </div>
+      </fieldset>
+      <fieldset class="group">
+        <legend class="field-label">
           Services
         </legend>
-        <button
-          v-for="service in SERVICES"
-          :key="service"
-          type="button"
-          class="chip"
-          :aria-pressed="services.includes(service)"
-          @click="toggleService(service)"
-        >
-          {{ SERVICE_LABELS[service].emoji }} {{ SERVICE_LABELS[service].label }}
-        </button>
+        <div class="services">
+          <button
+            v-for="service in SERVICES"
+            :key="service"
+            type="button"
+            class="chip"
+            :aria-pressed="services.includes(service)"
+            @click="toggleService(service)"
+          >
+            <AppIcon :name="SERVICE_ICONS[service]" /> {{ SERVICE_LABELS[service].label }}
+          </button>
+        </div>
       </fieldset>
-      <button class="btn btn-primary btn-block" :disabled="!mounted || pending !== null" @click="locate">
-        {{ pending === 'locating' ? 'Localisation…' : pending === 'loading' ? 'Recherche…' : position ? '📍 Actualiser ma position' : '📍 Chercher autour de moi' }}
+      <button class="btn btn-primary btn-block btn-large" :disabled="!mounted || pending !== null" @click="locate">
+        <AppIcon name="locate" />
+        {{ pending === 'locating' ? 'Localisation…' : pending === 'loading' ? 'Recherche…' : position ? 'Actualiser ma position' : 'Chercher autour de moi' }}
       </button>
       <p v-if="error" class="error" role="alert" style="margin: 0">
         {{ error }}
@@ -159,7 +177,9 @@ const saving = computed(() => {
 
     <section v-if="stations && shortages.length" class="card card-soon">
       <button type="button" class="shortage-toggle" :aria-expanded="showShortages" @click="showShortages = !showShortages">
-        ⚠️ {{ shortages.length }} station{{ shortages.length > 1 ? 's' : '' }} en rupture de {{ FUEL_LABELS[selectedFuel] }} dans ce rayon
+        <AppIcon name="alert" />
+        {{ shortages.length }} station{{ shortages.length > 1 ? 's' : '' }} en rupture de {{ FUEL_LABELS[selectedFuel] }} dans ce rayon
+        <AppIcon name="chevron" class="toggle-chevron" />
       </button>
       <ul v-if="showShortages" class="list">
         <li v-for="shortage in shortages" :key="shortage.id" class="list-item">
@@ -175,28 +195,32 @@ const saving = computed(() => {
 
     <section v-if="stations" class="card" aria-live="polite">
       <template v-if="stations.length">
-        <h2>
-          {{ stations.length >= MAX_RESULTS ? `Les ${MAX_RESULTS} stations les moins chères` : `${stations.length} station${stations.length > 1 ? 's' : ''}` }}
-          dans un rayon de {{ radius }} km
-        </h2>
-        <p v-if="saving >= 1" class="muted small">
-          Jusqu'à {{ formatEuro(saving) }} d'écart sur un plein de 40 L entre la première et la dernière station de cette liste.
+        <div class="section-head">
+          <h2>
+            {{ stations.length >= MAX_RESULTS ? `Les ${MAX_RESULTS} stations les moins chères` : `${stations.length} station${stations.length > 1 ? 's' : ''}` }}
+            dans un rayon de {{ radius }} km
+          </h2>
+          <FuelTag :fuel="selectedFuel" />
+        </div>
+        <p v-if="saving >= 1" class="note note-accent small">
+          Jusqu'à <strong>{{ formatEuro(saving) }}</strong> d'écart sur un plein de 40 L entre la première et la dernière station de cette liste.
         </p>
-        <ul class="list">
+        <ol class="list">
           <li v-for="(station, index) in stations" :key="station.id" class="list-item" :class="{ 'list-item-active': station.id === selected }">
-            <div>
+            <span class="rank" aria-hidden="true">{{ index + 1 }}</span>
+            <div class="station-body">
               <button type="button" class="station-name" :aria-pressed="station.id === selected" @click="showOnMap(station.id)">
                 {{ station.address || station.city }}
               </button>
-              <span v-if="index === 0" class="badge badge-ok" style="margin-left: .4rem">Le moins cher</span>
+              <span v-if="index === 0" class="badge badge-ok best-badge">Le moins cher</span>
               <div class="muted small">
                 {{ station.postalCode }} {{ station.city }} · {{ formatNumber(station.distanceKm, 1) }} km
                 <template v-if="station.alwaysOpen"> · 24 h/24</template>
               </div>
-              <div v-if="station.services.length" class="muted small station-services">
-                <span v-for="service in station.services" :key="service" :title="SERVICE_LABELS[service].label" role="img" :aria-label="SERVICE_LABELS[service].label">{{ SERVICE_LABELS[service].emoji }}</span>
+              <div v-if="station.services.length" class="station-services">
+                <span v-for="service in station.services" :key="service" :title="SERVICE_LABELS[service].label" role="img" :aria-label="SERVICE_LABELS[service].label"><AppIcon :name="SERVICE_ICONS[service]" /></span>
               </div>
-              <div class="muted small">
+              <div class="muted small station-links">
                 Relevé le {{ formatDate(station.updatedAt) }} ·
                 <a :href="directions(station)" target="_blank" rel="noopener">Itinéraire</a>
                 <template v-if="vehicle?.fuel === selectedFuel">
@@ -205,9 +229,9 @@ const saving = computed(() => {
               </div>
               <StationReports :station-id="station.id" :fuel="selectedFuel" :reports="station.reports" />
             </div>
-            <span class="price">{{ formatEuro(station.price, 3) }}</span>
+            <PumpPrice :value="station.price" :tone="index === 0 ? 'best' : 'dark'" />
           </li>
-        </ul>
+        </ol>
       </template>
       <p v-else class="muted" style="margin: 0">
         Aucune station ne vend du {{ FUEL_LABELS[selectedFuel] }}
@@ -233,12 +257,21 @@ const saving = computed(() => {
 </template>
 
 <style scoped>
-.services { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0; padding: 0; border: 0; }
-.services legend { margin-bottom: .4rem; padding: 0; font-weight: 600; }
-.chip { min-height: 34px; padding: 0 .75rem; border: 1px solid var(--border); border-radius: 999px; background: var(--surface); color: var(--text); font: inherit; font-size: .85rem; cursor: pointer; }
-.chip[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
-.shortage-toggle { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
-.station-name { padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 700; text-align: left; cursor: pointer; }
+.group { display: grid; gap: .5rem; margin: 0; padding: 0; border: 0; min-width: 0; }
+.group legend { margin-bottom: .5rem; padding: 0; }
+.fuels { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: .4rem; }
+.fuel-option { display: flex; align-items: center; min-height: 48px; padding: .3rem .6rem; border: 1px solid var(--border); border-radius: var(--radius-small); background: var(--sunken); color: var(--muted); font: inherit; cursor: pointer; }
+.fuel-option[aria-pressed='true'] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.fuel-option :deep(.fuel-name) { color: var(--text); }
+.services { display: flex; flex-wrap: wrap; gap: .4rem; }
+.shortage-toggle { display: flex; align-items: center; gap: .5rem; width: 100%; padding: 0; border: 0; background: none; color: var(--warn); font: inherit; font-weight: 600; text-align: left; cursor: pointer; }
+.toggle-chevron { margin-left: auto; transition: transform .15s ease; }
+.shortage-toggle[aria-expanded='true'] .toggle-chevron { transform: rotate(90deg); }
+.list-item { align-items: flex-start; }
+.rank { width: 1.6rem; flex-shrink: 0; padding-top: .1rem; color: var(--muted); font: 600 1.1rem/1.2 var(--font-display); }
+.station-body { flex: 1; min-width: 0; display: grid; gap: .2rem; }
+.best-badge { justify-self: start; }
+.station-name { justify-self: start; padding: 0; border: 0; background: none; color: inherit; font: 600 1.05rem var(--font-body); text-align: left; cursor: pointer; }
 .station-name:hover { color: var(--accent); }
-.list-item-active { margin: 0 -.6rem; padding-inline: .6rem; border-radius: 10px; background: var(--accent-soft); }
+.list-item-active { margin: 0 -.6rem; padding-inline: .6rem; border-radius: var(--radius-small); background: var(--accent-soft); }
 </style>

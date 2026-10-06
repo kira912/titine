@@ -14,12 +14,13 @@ useSeoMeta({
 <template>
   <header class="topbar">
     <NuxtLink to="/" class="brand">
-      <img src="/icon.svg" alt="" width="28" height="28">
+      <img src="/icon.svg" alt="" width="30" height="30">
       <span>{{ APP.name }}</span>
     </NuxtLink>
   </header>
   <main class="container stack">
     <section>
+      <span class="eyebrow">{{ notFound ? 'Erreur 404 · route barrée' : 'Panne' }}</span>
       <h1>{{ notFound ? 'Cette page n\'existe pas' : 'Une erreur est survenue' }}</h1>
       <p class="muted">
         {{ notFound

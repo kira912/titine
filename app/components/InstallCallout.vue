@@ -6,7 +6,8 @@ const { standalone, platform, canPrompt, install } = useInstall()
 </script>
 
 <template>
-  <aside v-if="!standalone" class="card callout">
+  <aside v-if="!standalone" class="card callout install">
+    <AppIcon name="phone" class="install-icon" />
     <template v-if="platform === 'ios'">
       <h2>Ajoute {{ APP.name }} à ton écran d'accueil</h2>
       <p>
@@ -41,3 +42,9 @@ const { standalone, platform, canPrompt, install } = useInstall()
     </template>
   </aside>
 </template>
+
+<style scoped>
+.install { position: relative; padding-left: 3.6rem; }
+.install-icon { position: absolute; left: 1.1rem; top: 1.15rem; width: 28px; height: 28px; color: var(--accent); }
+.install p:last-child { margin-bottom: 0; }
+</style>

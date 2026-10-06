@@ -1,15 +1,24 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
-  <rect width="1200" height="630" fill="#1d4ed8"/>
-  <circle cx="1060" cy="120" r="260" fill="#2563eb"/>
-  <circle cx="1120" cy="560" r="180" fill="#1e40af"/>
-  <g transform="translate(96 72) scale(0.34)">
-    <rect width="512" height="512" rx="112" fill="#fff"/>
-    <path d="M132 292l28-84c6-18 22-30 41-30h110c19 0 35 12 41 30l28 84v66c0 9-7 16-16 16h-20c-9 0-16-7-16-16v-14H184v14c0 9-7 16-16 16h-20c-9 0-16-7-16-16z" fill="#1d4ed8"/>
-    <path d="M176 270l18-54c2-6 7-10 13-10h98c6 0 11 4 13 10l18 54z" fill="#fff"/>
-    <circle cx="180" cy="308" r="16" fill="#fff"/>
-    <circle cx="332" cy="308" r="16" fill="#fff"/>
+  <!-- Palette Catppuccin Frappé, comme l'interface -->
+  <rect width="1200" height="630" fill="#303446"/>
+  <rect x="0" y="560" width="1200" height="70" fill="#232634"/>
+  <g transform="translate(840 150) scale(0.66)">
+    <rect width="512" height="512" rx="112" fill="#232634"/>
+    <rect x="138" y="330" width="56" height="70" rx="18" fill="#414559"/>
+    <rect x="318" y="330" width="56" height="70" rx="18" fill="#414559"/>
+    <path d="M150 262c8-78 50-122 106-122s98 44 106 122z" fill="#c6d0f5"/>
+    <path d="M182 254c8-54 36-84 74-84s66 30 74 84z" fill="#303446"/>
+    <rect x="98" y="236" width="316" height="122" rx="60" fill="#c6d0f5"/>
+    <circle cx="170" cy="294" r="38" fill="#e5c890"/>
+    <circle cx="342" cy="294" r="38" fill="#e5c890"/>
+    <circle cx="170" cy="294" r="38" fill="none" stroke="#303446" stroke-width="10"/>
+    <circle cx="342" cy="294" r="38" fill="none" stroke="#303446" stroke-width="10"/>
+    <rect x="228" y="276" width="56" height="40" rx="12" fill="#303446"/>
   </g>
-  <text x="96" y="370" fill="#fff" font-family="Inter, 'Noto Sans', 'DejaVu Sans', sans-serif" font-size="112" font-weight="800">Titine</text>
-  <text x="96" y="440" fill="#dbeafe" font-family="Inter, 'Noto Sans', 'DejaVu Sans', sans-serif" font-size="44" font-weight="600">Le carnet de ta voiture</text>
-  <text x="96" y="530" fill="#bfdbfe" font-family="Inter, 'Noto Sans', 'DejaVu Sans', sans-serif" font-size="30">Pleins · Consommation · Entretien · Carburant le moins cher</text>
+  <text x="90" y="150" fill="#a5adce" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace" font-size="24" letter-spacing="3">CARNET DE BORD · GRATUIT · SANS COMPTE</text>
+  <text x="84" y="300" fill="#c6d0f5" font-family="'Barlow Condensed', 'Noto Sans', 'DejaVu Sans Condensed', sans-serif" font-size="150" font-weight="700" letter-spacing="12">TITINE</text>
+  <rect x="90" y="330" width="140" height="8" fill="#e5c890"/>
+  <text x="90" y="410" fill="#c6d0f5" font-family="'Barlow', 'Noto Sans', 'DejaVu Sans', sans-serif" font-size="46" font-weight="600">Le carnet de ta voiture</text>
+  <text x="90" y="470" fill="#a5adce" font-family="'Barlow', 'Noto Sans', 'DejaVu Sans', sans-serif" font-size="27">Pleins · Consommation · Entretien · Prix du carburant</text>
+  <text x="90" y="604" fill="#e5c890" font-family="'IBM Plex Mono', 'DejaVu Sans Mono', monospace" font-size="26" letter-spacing="3">PRIX OFFICIELS MIS À JOUR TOUTES LES 30 MIN</text>
 </svg>

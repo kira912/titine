@@ -3,7 +3,7 @@
 Le carnet de ta voiture : pleins, consommation, entretiens, et le carburant le moins cher autour de toi.
 PWA Nuxt 4, **local-first** : le carnet vit dans le navigateur (IndexedDB), sans compte.
 
-Le nom, le slogan et les couleurs sont centralisés dans `shared/app.ts`.
+Le nom et le slogan sont centralisés dans `shared/app.ts`. L'interface suit un thème « carnet de bord » (compteur à rouleaux, tickets, tampons, étiquettes européennes des carburants) aux couleurs de la palette [Catppuccin Frappé](https://catppuccin.com/palette), définie dans `app/assets/main.css` ; polices Barlow, Barlow Condensed et IBM Plex Mono, auto-hébergées (`@fontsource`) pour fonctionner hors ligne.
 
 ## Ce que fait le MVP
 
@@ -57,8 +57,8 @@ Les migrations sont appliquées à la première requête. Après une modificatio
 
 ## Carte des stations
 
-- La page Carburant affiche les stations sur une carte **MapLibre GL** (fork open source de mapbox-gl) avec les tuiles **OpenFreeMap**, style *Liberty*, le plus proche de Google Maps : **aucune clé d'API, aucun compte, aucun quota**. Prix en bulles, le moins cher en vert, ta position en point bleu ; toucher une bulle ou un nom dans la liste ouvre la fiche de la station et recentre la carte.
-- Style : `NUXT_PUBLIC_MAP_STYLE` (par défaut `https://tiles.openfreemap.org/styles/liberty`, variantes `…/bright` et `…/positron`). Tout style compatible MapLibre fonctionne.
+- La page Carburant affiche les stations sur une carte **MapLibre GL** (fork open source de mapbox-gl) avec les tuiles **OpenFreeMap**, style *Fiord* (bleu nuit, assorti à la palette Catppuccin Frappé de l'interface) : **aucune clé d'API, aucun compte, aucun quota**. Prix en bulles, le moins cher en vert, ta position en point bleu ; toucher une bulle ou un nom dans la liste ouvre la fiche de la station et recentre la carte.
+- Style : `NUXT_PUBLIC_MAP_STYLE` (par défaut `https://tiles.openfreemap.org/styles/fiord`, variantes `…/liberty`, `…/dark` et `…/positron`). Tout style compatible MapLibre fonctionne.
 - L'attribution OpenStreetMap est obligatoire : elle est repliée derrière le bouton ⓘ de la carte, ne pas la retirer.
 - La bibliothèque (~1 Mo) et son worker (~500 Ko) sont chargés à la demande et exclus du précache du service worker (les avertissements « won't be precached » au build sont voulus). Le worker est compilé à part via `?worker&url` : MapLibre le désigne par un chemin calculé à l'exécution que Vite ne verrait pas.
 

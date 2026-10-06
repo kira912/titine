@@ -40,9 +40,9 @@ export default defineNuxtConfig({
     public: {
       // NUXT_PUBLIC_SITE_URL : origine publique, pour les URL canoniques et le sitemap
       siteUrl: VERCEL_URL ? `https://${VERCEL_URL}` : 'http://localhost:3000',
-      // Fond de carte vectoriel OpenFreeMap (sans clé ni quota), le plus proche de Google Maps.
-      // NUXT_PUBLIC_MAP_STYLE : autre style compatible MapLibre (…/styles/bright, …/styles/positron)
-      mapStyle: 'https://tiles.openfreemap.org/styles/liberty',
+      // Fond de carte vectoriel OpenFreeMap (sans clé ni quota), Fiord : bleu nuit, assorti à la palette Catppuccin Frappé.
+      // NUXT_PUBLIC_MAP_STYLE : autre style compatible MapLibre (…/styles/liberty, …/styles/dark, …/styles/positron)
+      mapStyle: 'https://tiles.openfreemap.org/styles/fiord',
     },
   },
 

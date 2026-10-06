@@ -15,7 +15,7 @@ useBreadcrumbs([
 
 <template>
   <div class="stack">
-    <nav aria-label="Fil d'Ariane" class="small">
+    <nav aria-label="Fil d'Ariane" class="breadcrumbs">
       <NuxtLink to="/">Accueil</NuxtLink> › <span aria-current="page">Prix des carburants</span>
     </nav>
 
@@ -26,7 +26,7 @@ useBreadcrumbs([
         transmises par les stations-service et sont actualisés toutes les 30 minutes.
       </p>
       <NuxtLink to="/carburant" class="btn btn-primary">
-        📍 Le moins cher autour de moi
+        <AppIcon name="locate" /> Le moins cher autour de moi
       </NuxtLink>
     </section>
 

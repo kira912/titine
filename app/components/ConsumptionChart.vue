@@ -39,6 +39,8 @@ const y = (value: number) => PAD.top + (1 - (value - domain.value.lo) / (domain.
 
 const points = computed(() => props.segments.map((segment, i) => ({ ...segment, x: x(i), y: y(segment.consumption) })))
 const path = computed(() => points.value.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' '))
+/** Aire sous la courbe, refermée sur la ligne de base */
+const area = computed(() => `${path.value} L${last.value.x.toFixed(1)},${HEIGHT - PAD.bottom} L${first.value.x.toFixed(1)},${HEIGHT - PAD.bottom} Z`)
 
 const ticks = computed(() => {
   const { lo, hi, step } = domain.value
@@ -91,6 +93,7 @@ const last = computed(() => points.value.at(-1)!)
       <text class="chart-label" :x="PAD.left" :y="HEIGHT - 6">{{ formatDate(first.date) }}</text>
       <text class="chart-label" :x="width - PAD.right" :y="HEIGHT - 6" text-anchor="end">{{ formatDate(last.date) }}</text>
 
+      <path class="chart-area" :d="area" />
       <path class="chart-line" :d="path" />
       <circle v-for="(point, i) in points" :key="i" class="chart-dot" :cx="point.x" :cy="point.y" r="4" />
 
@@ -116,7 +119,7 @@ const last = computed(() => points.value.at(-1)!)
 svg { display: block; overflow: visible; touch-action: pan-y; }
 svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
 .chart-label { font-size: 11px; font-variant-numeric: tabular-nums; }
-.chart-dot { stroke: var(--surface); stroke-width: 2; }
+.chart-dot { stroke-width: 2; }
 .chart-cursor { stroke: var(--muted); stroke-width: 1; stroke-dasharray: 3 3; }
 .chart-tooltip {
   position: absolute;
@@ -128,11 +131,11 @@ svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; borde
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
-  box-shadow: 0 4px 12px rgb(0 0 0 / .12);
+  box-shadow: 0 4px 12px rgb(0 0 0 / .35);
   font-size: .8rem;
   white-space: nowrap;
   pointer-events: none;
 }
-.chart-tooltip strong { font-size: .95rem; }
+.chart-tooltip strong { color: var(--accent); font: 700 1.1rem var(--font-display); }
 .chart-tooltip span { color: var(--muted); }
 </style>
