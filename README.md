@@ -12,6 +12,7 @@ Le nom, le slogan et les couleurs sont centralisés dans `shared/app.ts`.
 - **Entretiens et rappels** par date ou par kilométrage (le premier des deux). Vidange, pneus et contrôle technique sont créés d'office ; le premier contrôle technique est placé 4 ans après la mise en circulation, puis tous les 2 ans.
 - **Carburant le moins cher autour de moi**, à partir du flux open data des prix des carburants.
 - **Économies réalisées** : un plein peut être rattaché à une station (« J'ai fait le plein ici » depuis la page Carburant, ou « Choisir la station » à moins de 3 km). Le prix payé est pré-rempli, et le plein est comparé au prix moyen dans un rayon de 10 km autour de la station (au moins 3 relevés), figé dans le plein au moment de la saisie. La comparaison ne vaut que pour un plein du jour.
+- **Bilan et badges** (`/bilan`) : bilan annuel (distance, consommation, dépense, économies, station préférée, meilleure affaire, mois le plus cher) partageable en image, et 9 badges calculés à partir du carnet, sans rien stocker de plus. Un badge débloqué par un plein est annoncé à l'enregistrement.
 - **Pages publiques** `/prix-carburant` et `/prix-carburant/[ville]`, rendues côté serveur pour le référencement, avec `sitemap.xml` et `robots.txt`.
 
 Hors MVP : OCR des tickets, export PDF, multi-véhicules, partage familial, Crit'Air, suivi de trajets, notifications push.
@@ -33,7 +34,7 @@ Les migrations sont appliquées à la première requête. Après une modificatio
 
 ## Organisation
 
-- `shared/` : logique pure, testée, commune au navigateur et au serveur (`consumption.ts`, `savings.ts`, `reminders.ts`, `dates.ts`, `geo.ts`).
+- `shared/` : logique pure, testée, commune au navigateur et au serveur (`consumption.ts`, `savings.ts`, `achievements.ts`, `recap.ts`, `reminders.ts`, `dates.ts`, `geo.ts`).
 - `app/utils/db.ts` : base locale Dexie (`vehicles`, `fillUps`, `reminders`, `services`). `vehicleId` est déjà indexé partout : le multi-véhicules ne demandera pas de migration.
 - `app/utils/garage.ts` : toutes les écritures du carnet. `app/composables/useGarage.ts` : lectures réactives (`liveQuery`).
 - `server/` : uniquement les prix des carburants. Aucune donnée d'utilisateur ne quitte l'appareil.

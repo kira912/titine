@@ -1,3 +1,4 @@
+import { achievements } from '#shared/achievements'
 import { today } from '#shared/dates'
 import { reminderStatus, type ReminderLevel } from '#shared/reminders'
 import type { FillUp, Reminder, Service, Vehicle } from '#shared/types'
@@ -63,4 +64,11 @@ export function useReminderStatuses(vehicle: Ref<Saved<Vehicle> | null>) {
         LEVEL_ORDER[a.status.level] - LEVEL_ORDER[b.status.level]
         || (a.status.daysLeft ?? Infinity) - (b.status.daysLeft ?? Infinity))
   })
+}
+
+/** Badges du carnet, recalculés à chaque plein ou entretien */
+export function useAchievements() {
+  const fillUps = useFillUps()
+  const services = useServices()
+  return computed(() => achievements({ fillUps: fillUps.value, services: services.value }))
 }

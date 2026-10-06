@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { consumptionSegments, odometerConflict } from '#shared/consumption'
 import { today } from '#shared/dates'
+import { achievements, newlyUnlocked, type Achievement } from '#shared/achievements'
 import { fillUpSaving } from '#shared/savings'
 import type { FillUpStation, NearbyStation, StationDetail } from '#shared/types'
 
@@ -8,6 +9,10 @@ useSeoMeta({ title: 'Plein', robots: 'noindex, nofollow' })
 
 const { vehicle, ready } = useVehicle()
 const fillUps = useFillUps()
+const services = useServices()
+const badges = useAchievements()
+/** Badges débloqués par le dernier plein enregistré */
+const unlocked = ref<Achievement[]>([])
 
 const route = useRoute()
 const router = useRouter()
@@ -93,7 +98,6 @@ function stationRecord(): FillUpStation | null {
   return { id, address, city, localAverage: comparable.value ? localAverage : null }
 }
 
-const stationName = (place: { address: string, city: string }) => [place.address, place.city].filter(Boolean).join(', ')
 
 /** « 4,20 € de moins que la moyenne » ou « 1,10 € de plus que la moyenne » */
 function savingLabel(saving: number) {
@@ -106,6 +110,7 @@ const history = computed(() => [...fillUps.value].reverse().map(fill => ({ ...fi
 
 async function submit() {
   saved.value = ''
+  unlocked.value = []
   const odometer = parseKm(form.odometer)
   if (!vehicle.value) return
   if (liters.value === null) return void (error.value = 'Indique le nombre de litres.')
@@ -119,6 +124,7 @@ async function submit() {
   }
 
   error.value = ''
+  const before = badges.value
   const fillUp = { date: form.date, odometer, liters: liters.value, totalPrice: totalPrice.value, full: form.full, station: stationRecord() }
   await addFillUp(vehicle.value, fillUp)
   Object.assign(form, blank())
@@ -126,7 +132,9 @@ async function submit() {
   await clearStation()
 
   // La liste réactive n'est pas encore à jour : on relit la base pour annoncer la consommation du plein
-  const consumption = new Map(consumptionSegments(await useLocalDb().fillUps.toArray()).map(s => [s.odometer, s.consumption])).get(odometer)
+  const allFillUps = await useLocalDb().fillUps.toArray()
+  const consumption = new Map(consumptionSegments(allFillUps).map(s => [s.odometer, s.consumption])).get(odometer)
+  unlocked.value = newlyUnlocked(before, achievements({ fillUps: allFillUps, services: services.value }))
   const saving = fillUpSaving(fillUp)
   saved.value = [
     consumption === undefined ? 'Plein enregistré.' : `Plein enregistré : ${formatNumber(consumption, 1)} L/100 km depuis le plein précédent.`,
@@ -149,7 +157,7 @@ function remove(id: number) {
         <div class="station-pick">
           <template v-if="station">
             <div>
-              <strong>{{ stationName(station) }}</strong>
+              <strong>{{ formatStation(station) }}</strong>
               <div class="muted small">
                 <template v-if="station.price">
                   {{ formatEuro(station.price, 3) }}/L
@@ -168,7 +176,7 @@ function remove(id: number) {
             <span class="muted small">Dans quelle station ?</span>
             <div class="station-choices">
               <button v-for="place in nearby" :key="place.id" type="button" class="btn btn-small btn-ghost" @click="loadStation(place.id)">
-                {{ stationName(place) }} · {{ formatNumber(place.distanceKm, 1) }} km · {{ formatEuro(place.price, 3) }}
+                {{ formatStation(place) }} · {{ formatNumber(place.distanceKm, 1) }} km · {{ formatEuro(place.price, 3) }}
               </button>
             </div>
           </template>
@@ -221,6 +229,10 @@ function remove(id: number) {
         <p v-if="saved" class="badge badge-ok" role="status" style="justify-self: start">
           {{ saved }}
         </p>
+        <NuxtLink v-for="badge in unlocked" :key="badge.id" to="/bilan" class="unlocked" role="status">
+          <span aria-hidden="true">{{ badge.emoji }}</span>
+          <span>Nouveau badge : <strong>{{ badge.title }}</strong></span>
+        </NuxtLink>
       </form>
     </section>
 
@@ -235,7 +247,7 @@ function remove(id: number) {
               <template v-if="!fill.full"> · partiel</template>
             </div>
             <div v-if="fill.station" class="muted small">
-              {{ stationName(fill.station) }}
+              {{ formatStation(fill.station) }}
               <span v-if="fill.saving !== null" class="badge" :class="fill.saving >= 0 ? 'badge-ok' : 'badge-soon'" :title="savingLabel(fill.saving)">
                 {{ fill.saving >= 0 ? '−' : '+' }}{{ formatEuro(Math.abs(fill.saving)) }}
               </span>
@@ -257,6 +269,10 @@ function remove(id: number) {
 </template>
 
 <style scoped>
+.unlocked { display: flex; align-items: center; gap: .6rem; padding: .6rem .9rem; border-radius: 12px; background: var(--accent-soft); color: var(--text); text-decoration: none; animation: pop .4s ease-out; }
+.unlocked > span:first-child { font-size: 1.5rem; }
+@keyframes pop { from { transform: scale(.9); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .unlocked { animation: none; } }
 .station-pick { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
 .station-choices { display: grid; gap: .4rem; flex-basis: 100%; }
 .station-choices .btn { justify-content: flex-start; text-align: left; height: auto; padding-block: .4rem; }

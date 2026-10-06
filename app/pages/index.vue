@@ -39,6 +39,12 @@ const segments = computed(() => consumptionSegments(fillUps.value))
 const stats = computed(() => fuelStats(fillUps.value))
 const due = computed(() => statuses.value.filter(({ status }) => status.level !== 'ok'))
 const savings = computed(() => savingsSummary(fillUps.value))
+const badges = useAchievements()
+const unlockedCount = computed(() => badges.value.filter(badge => badge.unlocked).length)
+/** Badge verrouillé le plus avancé : l'objectif à portée de main */
+const nextBadge = computed(() => badges.value
+  .filter(badge => !badge.unlocked)
+  .sort((a, b) => b.current / b.target - a.current / a.target)[0])
 const yearSavings = computed(() => savingsSummary(fillUps.value, `${today().slice(0, 4)}-01-01`))
 </script>
 
@@ -200,6 +206,17 @@ const yearSavings = computed(() => savingsSummary(fillUps.value, `${today().slic
     <p v-else-if="fillUps.length" class="muted small" style="margin: 0">
       💰 Choisis la station quand tu ajoutes un plein : Titine te dira combien tu as économisé par rapport aux prix du coin.
     </p>
+
+    <NuxtLink to="/bilan" class="card" style="text-decoration: none">
+      <div class="row">
+        <strong>🏅 Bilan et badges</strong>
+        <span class="badge badge-ok">{{ unlockedCount }} / {{ badges.length }}</span>
+      </div>
+      <span v-if="nextBadge" class="muted small">
+        Prochain : {{ nextBadge.emoji }} {{ nextBadge.title }} ({{ formatNumber(nextBadge.current) }} / {{ formatNumber(nextBadge.target) }})
+      </span>
+      <span v-else class="muted small">Tous les badges sont débloqués. Chapeau !</span>
+    </NuxtLink>
 
     <section class="card">
       <h2>Consommation par plein</h2>

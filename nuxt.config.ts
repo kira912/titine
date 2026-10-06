@@ -2,7 +2,7 @@ import { APP } from './shared/app'
 
 // Écrans personnels du carnet : données locales (IndexedDB), rendus côté client et jamais indexés.
 // L'accueil et /carburant sont rendus côté serveur : c'est leur contenu public que lisent les moteurs.
-const PRIVATE_ROUTES = ['/plein', '/entretien', '/vehicule']
+const PRIVATE_ROUTES = ['/plein', '/entretien', '/vehicule', '/bilan']
 const NOINDEX = { 'x-robots-tag': 'noindex, nofollow' }
 
 // Sur Vercel, le domaine de production est connu au build : il sert d'origine publique par défaut

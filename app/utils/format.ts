@@ -57,3 +57,8 @@ export function formatInterval(reminder: Pick<Reminder, 'intervalKm' | 'interval
   if (reminder.intervalMonths) parts.push(`${reminder.intervalMonths} mois`)
   return parts.length ? `Tous les ${parts.join(' ou ')}` : 'Sans périodicité'
 }
+
+/** « 12 rue de la Gare, Lyon » */
+export function formatStation(station: { address: string, city: string }): string {
+  return [station.address, station.city].filter(Boolean).join(', ')
+}
