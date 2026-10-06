@@ -22,6 +22,17 @@ export interface FillUp {
   totalPrice: number
   /** Plein complet : seul un plein complet permet de calculer une consommation */
   full: boolean
+  /** Station où le plein a été fait, si elle a été choisie (absente des pleins plus anciens) */
+  station?: FillUpStation | null
+}
+
+/** Station d'un plein, figée au moment de la saisie */
+export interface FillUpStation {
+  id: number
+  address: string
+  city: string
+  /** Prix moyen au litre autour de la station ce jour-là ; `null` si trop peu de relevés */
+  localAverage: number | null
 }
 
 export type ReminderKind = 'vidange' | 'pneus' | 'controle-technique' | 'autre'
@@ -62,4 +73,19 @@ export interface NearbyStation {
   price: number
   updatedAt: string
   distanceKm: number
+}
+
+/** Station renvoyée par `/api/stations/:id`, avec le prix moyen autour d'elle */
+export interface StationDetail {
+  id: number
+  lat: number
+  lon: number
+  address: string
+  city: string
+  postalCode: string
+  alwaysOpen: boolean
+  /** `null` si la station n'a pas de prix récent pour ce carburant */
+  price: number | null
+  updatedAt: string | null
+  localAverage: number | null
 }

@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { consumptionSegments, odometerConflict } from '#shared/consumption'
 import { today } from '#shared/dates'
+import { fillUpSaving } from '#shared/savings'
+import type { FillUpStation, NearbyStation, StationDetail } from '#shared/types'
 
 useSeoMeta({ title: 'Plein', robots: 'noindex, nofollow' })
 
 const { vehicle, ready } = useVehicle()
 const fillUps = useFillUps()
+
+const route = useRoute()
+const router = useRouter()
 
 const blank = () => ({ liters: '', totalPrice: '', odometer: '', date: today(), full: true })
 const form = reactive(blank())
@@ -16,9 +21,88 @@ const liters = computed(() => parseDecimal(form.liters))
 const totalPrice = computed(() => parseDecimal(form.totalPrice))
 const pricePerLiter = computed(() => (liters.value && totalPrice.value ? totalPrice.value / liters.value : null))
 
+/** Station du plein, choisie à proximité ou depuis la page Carburant (`?station=`) */
+const station = ref<StationDetail | null>(null)
+const nearby = ref<NearbyStation[] | null>(null)
+const stationPending = ref(false)
+const stationError = ref('')
+// Tant que le prix payé n'a pas été saisi à la main, il suit les litres au prix de la station
+const totalTouched = ref(false)
+
+// Les prix du jour ne disent rien d'un plein plus ancien : pas de comparaison dans ce cas
+const comparable = computed(() => form.date === today())
+
+async function loadStation(id: number) {
+  if (!vehicle.value) return
+  stationPending.value = true
+  stationError.value = ''
+  try {
+    station.value = await $fetch<StationDetail>(`/api/stations/${id}`, { query: { fuel: vehicle.value.fuel } })
+    nearby.value = null
+  }
+  catch {
+    stationError.value = navigator.onLine ? 'Station introuvable.' : 'Pas de réseau : la station ne peut pas être chargée.'
+  }
+  finally {
+    stationPending.value = false
+  }
+}
+
+async function findNearby() {
+  if (!vehicle.value) return
+  stationPending.value = true
+  stationError.value = ''
+  try {
+    const position = await currentPosition().catch((failure: Error) => {
+      stationError.value = failure.message
+    })
+    if (!position) return
+    const list = await $fetch<NearbyStation[]>('/api/stations', { query: { ...position, fuel: vehicle.value.fuel, radius: 3 } })
+    nearby.value = list.sort((a, b) => a.distanceKm - b.distanceKm).slice(0, 5)
+    if (!nearby.value.length) stationError.value = 'Aucune station à moins de 3 km.'
+  }
+  catch {
+    stationError.value = navigator.onLine ? 'Les stations sont momentanément indisponibles.' : 'Pas de réseau : les stations ne sont pas disponibles hors ligne.'
+  }
+  finally {
+    stationPending.value = false
+  }
+}
+
+function clearStation() {
+  station.value = null
+  nearby.value = null
+  stationError.value = ''
+  if (route.query.station) return router.replace({ query: {} })
+}
+
+// Le véhicule change à chaque plein (kilométrage) : seul son carburant compte ici
+watch([() => vehicle.value?.fuel, () => route.query.station], ([fuel, id]) => {
+  const stationId = Number(id)
+  if (fuel && Number.isSafeInteger(stationId) && stationId > 0 && station.value?.id !== stationId) void loadStation(stationId)
+}, { immediate: true })
+
+watch([liters, () => station.value?.price], ([value, price]) => {
+  if (totalTouched.value || !price) return
+  form.totalPrice = value ? formatNumber(value * price, 2).replace(/\s/g, '') : ''
+})
+
+function stationRecord(): FillUpStation | null {
+  if (!station.value) return null
+  const { id, address, city, localAverage } = station.value
+  return { id, address, city, localAverage: comparable.value ? localAverage : null }
+}
+
+const stationName = (place: { address: string, city: string }) => [place.address, place.city].filter(Boolean).join(', ')
+
+/** « 4,20 € de moins que la moyenne » ou « 1,10 € de plus que la moyenne » */
+function savingLabel(saving: number) {
+  return `${formatEuro(Math.abs(saving))} de ${saving >= 0 ? 'moins' : 'plus'} que la moyenne du coin`
+}
+
 /** Consommation du tronçon qui se termine à chaque plein complet, repérée par son kilométrage */
 const consumptionByOdometer = computed(() => new Map(consumptionSegments(fillUps.value).map(s => [s.odometer, s.consumption])))
-const history = computed(() => [...fillUps.value].reverse())
+const history = computed(() => [...fillUps.value].reverse().map(fill => ({ ...fill, saving: fillUpSaving(fill) })))
 
 async function submit() {
   saved.value = ''
@@ -35,14 +119,19 @@ async function submit() {
   }
 
   error.value = ''
-  await addFillUp(vehicle.value, { date: form.date, odometer, liters: liters.value, totalPrice: totalPrice.value, full: form.full })
+  const fillUp = { date: form.date, odometer, liters: liters.value, totalPrice: totalPrice.value, full: form.full, station: stationRecord() }
+  await addFillUp(vehicle.value, fillUp)
   Object.assign(form, blank())
+  totalTouched.value = false
+  await clearStation()
 
   // La liste réactive n'est pas encore à jour : on relit la base pour annoncer la consommation du plein
   const consumption = new Map(consumptionSegments(await useLocalDb().fillUps.toArray()).map(s => [s.odometer, s.consumption])).get(odometer)
-  saved.value = consumption === undefined
-    ? 'Plein enregistré.'
-    : `Plein enregistré : ${formatNumber(consumption, 1)} L/100 km depuis le plein précédent.`
+  const saving = fillUpSaving(fillUp)
+  saved.value = [
+    consumption === undefined ? 'Plein enregistré.' : `Plein enregistré : ${formatNumber(consumption, 1)} L/100 km depuis le plein précédent.`,
+    saving === null ? '' : `${saving >= 0 ? 'Bien joué : ' : ''}${savingLabel(saving)}.`,
+  ].filter(Boolean).join(' ')
 }
 
 function remove(id: number) {
@@ -57,6 +146,39 @@ function remove(id: number) {
     <section class="card">
       <h1>Nouveau plein</h1>
       <form class="form" @submit.prevent="submit">
+        <div class="station-pick">
+          <template v-if="station">
+            <div>
+              <strong>{{ stationName(station) }}</strong>
+              <div class="muted small">
+                <template v-if="station.price">
+                  {{ formatEuro(station.price, 3) }}/L
+                  <template v-if="station.localAverage"> · moyenne du coin {{ formatEuro(station.localAverage, 3) }}/L</template>
+                </template>
+                <template v-else>
+                  Pas de prix récent pour ce carburant
+                </template>
+              </div>
+            </div>
+            <button type="button" class="btn btn-small btn-ghost" @click="clearStation">
+              Changer
+            </button>
+          </template>
+          <template v-else-if="nearby">
+            <span class="muted small">Dans quelle station ?</span>
+            <div class="station-choices">
+              <button v-for="place in nearby" :key="place.id" type="button" class="btn btn-small btn-ghost" @click="loadStation(place.id)">
+                {{ stationName(place) }} · {{ formatNumber(place.distanceKm, 1) }} km · {{ formatEuro(place.price, 3) }}
+              </button>
+            </div>
+          </template>
+          <button v-else type="button" class="btn btn-small btn-ghost" :disabled="stationPending" @click="findNearby">
+            {{ stationPending ? 'Recherche…' : '📍 Choisir la station' }}
+          </button>
+          <p v-if="stationError" class="muted small" style="margin: 0; flex-basis: 100%">
+            {{ stationError }}
+          </p>
+        </div>
         <div class="fields">
           <label class="field">
             Litres
@@ -64,7 +186,7 @@ function remove(id: number) {
           </label>
           <label class="field">
             Prix payé (€)
-            <input v-model="form.totalPrice" type="text" inputmode="decimal" placeholder="72,30" required>
+            <input v-model="form.totalPrice" type="text" inputmode="decimal" placeholder="72,30" required @input="totalTouched = true">
           </label>
           <label class="field">
             Kilométrage
@@ -83,6 +205,9 @@ function remove(id: number) {
         </div>
         <p v-if="pricePerLiter" class="muted small" style="margin: 0">
           Soit {{ formatEuro(pricePerLiter, 3) }} le litre.
+        </p>
+        <p v-if="station && !comparable" class="muted small" style="margin: 0">
+          La comparaison avec les prix du coin ne se fait que pour un plein du jour.
         </p>
         <p v-if="!form.full" class="muted small" style="margin: 0">
           Un plein partiel est compté dans la consommation au prochain plein complet.
@@ -109,6 +234,12 @@ function remove(id: number) {
               {{ formatNumber(fill.liters, 2) }} L · {{ formatEuro(fill.totalPrice) }} · {{ formatEuro(fill.totalPrice / fill.liters, 3) }}/L
               <template v-if="!fill.full"> · partiel</template>
             </div>
+            <div v-if="fill.station" class="muted small">
+              {{ stationName(fill.station) }}
+              <span v-if="fill.saving !== null" class="badge" :class="fill.saving >= 0 ? 'badge-ok' : 'badge-soon'" :title="savingLabel(fill.saving)">
+                {{ fill.saving >= 0 ? '−' : '+' }}{{ formatEuro(Math.abs(fill.saving)) }}
+              </span>
+            </div>
           </div>
           <div class="row" style="flex-wrap: nowrap">
             <span v-if="consumptionByOdometer.has(fill.odometer)" class="price">
@@ -126,5 +257,8 @@ function remove(id: number) {
 </template>
 
 <style scoped>
+.station-pick { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: .5rem; }
+.station-choices { display: grid; gap: .4rem; flex-basis: 100%; }
+.station-choices .btn { justify-content: flex-start; text-align: left; height: auto; padding-block: .4rem; }
 .field-inline .date { width: auto; min-height: 40px; padding: 0 .6rem; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--text); font: inherit; }
 </style>

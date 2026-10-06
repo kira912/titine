@@ -1,6 +1,7 @@
 import { and, avg, between, count, desc, eq, gte, max, min, ne } from 'drizzle-orm'
 import type { Fuel } from '../../shared/fuel'
 import { boundingBox, haversineKm } from '../../shared/geo'
+import type { StationDetail } from '../../shared/types'
 
 // Au-delà, le prix n'est plus relevé par la station (souvent fermée) : on ne l'affiche pas
 const MAX_PRICE_AGE_DAYS = 30
@@ -15,8 +16,8 @@ interface NearbyQuery {
   limit: number
 }
 
-/** Stations vendant ce carburant dans le rayon, de la moins chère à la plus chère */
-export async function cheapestStations({ lat, lon, radiusKm, fuel, limit }: NearbyQuery) {
+/** Prix récents de ce carburant dans le rayon, avec la distance au centre */
+async function pricesInRadius({ lat, lon, radiusKm, fuel }: Omit<NearbyQuery, 'limit'>) {
   const db = await useDb()
   const { stations, stationPrices } = schema
   const box = boundingBox(lat, lon, radiusKm)
@@ -45,8 +46,50 @@ export async function cheapestStations({ lat, lon, radiusKm, fuel, limit }: Near
   return rows
     .map(row => ({ ...row, distanceKm: haversineKm(lat, lon, row.lat, row.lon) }))
     .filter(row => row.distanceKm <= radiusKm)
+}
+
+/** Stations vendant ce carburant dans le rayon, de la moins chère à la plus chère */
+export async function cheapestStations({ limit, ...query }: NearbyQuery) {
+  const rows = await pricesInRadius(query)
+  return rows
     .sort((a, b) => a.price - b.price || a.distanceKm - b.distanceKm)
     .slice(0, limit)
+}
+
+// Rayon de la « moyenne locale » à laquelle on compare le prix d'un plein
+const LOCAL_RADIUS_KM = 10
+// En dessous, la moyenne ne veut pas dire grand-chose
+const LOCAL_MIN_STATIONS = 3
+
+/** Une station, son prix pour ce carburant et le prix moyen autour d'elle ; `null` si elle est inconnue */
+export async function stationDetail(id: number, fuel: Fuel): Promise<StationDetail | null> {
+  const db = await useDb()
+  const { stations, stationPrices } = schema
+
+  const [station] = await db.select().from(stations).where(eq(stations.id, id))
+  if (!station) return null
+
+  const [own] = await db
+    .select({ price: stationPrices.price, updatedAt: stationPrices.updatedAt })
+    .from(stationPrices)
+    .where(and(eq(stationPrices.stationId, id), eq(stationPrices.fuel, fuel), gte(stationPrices.updatedAt, freshSince())))
+
+  const around = await pricesInRadius({ lat: station.lat, lon: station.lon, radiusKm: LOCAL_RADIUS_KM, fuel })
+
+  return {
+    id: station.id,
+    lat: station.lat,
+    lon: station.lon,
+    address: station.address,
+    city: station.city,
+    postalCode: station.postalCode,
+    alwaysOpen: station.alwaysOpen,
+    price: own?.price ?? null,
+    updatedAt: own?.updatedAt.toISOString() ?? null,
+    localAverage: around.length >= LOCAL_MIN_STATIONS
+      ? around.reduce((sum, row) => sum + row.price, 0) / around.length
+      : null,
+  }
 }
 
 export interface CityStation {

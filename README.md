@@ -11,6 +11,7 @@ Le nom, le slogan et les couleurs sont centralisés dans `shared/app.ts`.
 - **Plein en 10 secondes** : litres, prix, kilométrage. Consommation (L/100 km) et coût au kilomètre calculés de plein complet à plein complet, avec une courbe par plein.
 - **Entretiens et rappels** par date ou par kilométrage (le premier des deux). Vidange, pneus et contrôle technique sont créés d'office ; le premier contrôle technique est placé 4 ans après la mise en circulation, puis tous les 2 ans.
 - **Carburant le moins cher autour de moi**, à partir du flux open data des prix des carburants.
+- **Économies réalisées** : un plein peut être rattaché à une station (« J'ai fait le plein ici » depuis la page Carburant, ou « Choisir la station » à moins de 3 km). Le prix payé est pré-rempli, et le plein est comparé au prix moyen dans un rayon de 10 km autour de la station (au moins 3 relevés), figé dans le plein au moment de la saisie. La comparaison ne vaut que pour un plein du jour.
 - **Pages publiques** `/prix-carburant` et `/prix-carburant/[ville]`, rendues côté serveur pour le référencement, avec `sitemap.xml` et `robots.txt`.
 
 Hors MVP : OCR des tickets, export PDF, multi-véhicules, partage familial, Crit'Air, suivi de trajets, notifications push.
@@ -32,7 +33,7 @@ Les migrations sont appliquées à la première requête. Après une modificatio
 
 ## Organisation
 
-- `shared/` : logique pure, testée, commune au navigateur et au serveur (`consumption.ts`, `reminders.ts`, `dates.ts`, `geo.ts`).
+- `shared/` : logique pure, testée, commune au navigateur et au serveur (`consumption.ts`, `savings.ts`, `reminders.ts`, `dates.ts`, `geo.ts`).
 - `app/utils/db.ts` : base locale Dexie (`vehicles`, `fillUps`, `reminders`, `services`). `vehicleId` est déjà indexé partout : le multi-véhicules ne demandera pas de migration.
 - `app/utils/garage.ts` : toutes les écritures du carnet. `app/composables/useGarage.ts` : lectures réactives (`liveQuery`).
 - `server/` : uniquement les prix des carburants. Aucune donnée d'utilisateur ne quitte l'appareil.
@@ -43,6 +44,7 @@ Les migrations sont appliquées à la première requête. Après une modificatio
 - Planification : toutes les 30 minutes par le planificateur de Nitro sur un serveur Node ; sur Vercel, par les crons et GitHub Actions (voir « Déploiement sur Vercel »). À la main en dev : `pnpm ingest` ou `curl -X POST localhost:3000/_nitro/tasks/fuel:ingest`.
 - `GET /api/cron/fuel-ingest` lance l'import en production, protégé par `Authorization: Bearer $CRON_SECRET` (401 sans le bon jeton, 503 si `CRON_SECRET` n'est pas défini).
 - `GET /api/stations?lat=…&lon=…&fuel=gazole&radius=10` : les 30 stations les moins chères dans le rayon (50 km maximum). Les prix relevés il y a plus de 30 jours sont écartés.
+- `GET /api/stations/:id?fuel=gazole` : une station, son prix et le prix moyen (`localAverage`) à 10 km autour d'elle, `null` sous 3 relevés.
 - Les pages ville sont mises en cache 30 minutes (`swr`). Les communes homonymes sont distinguées par le département dans l'URL (`saint-denis-93`, `saint-denis-974`).
 
 ## Carte des stations

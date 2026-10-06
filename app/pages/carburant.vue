@@ -66,23 +66,17 @@ async function search() {
   }
 }
 
-function locate() {
-  if (!('geolocation' in navigator)) return void (error.value = 'La géolocalisation n\'est pas disponible sur cet appareil.')
+async function locate() {
   pending.value = 'locating'
   error.value = ''
-  navigator.geolocation.getCurrentPosition(
-    ({ coords }) => {
-      position.value = { lat: coords.latitude, lon: coords.longitude }
-      void search()
-    },
-    (failure) => {
-      pending.value = null
-      error.value = failure.code === failure.PERMISSION_DENIED
-        ? 'Position refusée : autorise la localisation pour ce site dans les réglages du navigateur.'
-        : 'Position introuvable. Réessaie à l\'extérieur ou avec le GPS activé.'
-    },
-    { enableHighAccuracy: false, timeout: 15_000, maximumAge: 300_000 },
-  )
+  try {
+    position.value = await currentPosition()
+  }
+  catch (failure) {
+    pending.value = null
+    return void (error.value = (failure as Error).message)
+  }
+  await search()
 }
 
 watch([selectedFuel, radius], () => void search())
@@ -155,6 +149,9 @@ const saving = computed(() => {
               <div class="muted small">
                 Relevé le {{ formatDate(station.updatedAt) }} ·
                 <a :href="directions(station)" target="_blank" rel="noopener">Itinéraire</a>
+                <template v-if="vehicle?.fuel === selectedFuel">
+                  · <NuxtLink :to="{ path: '/plein', query: { station: station.id } }">J'ai fait le plein ici</NuxtLink>
+                </template>
               </div>
             </div>
             <span class="price">{{ formatEuro(station.price, 3) }}</span>

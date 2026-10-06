@@ -2,6 +2,8 @@
 import { APP } from '#shared/app'
 import { consumptionSegments, fuelStats } from '#shared/consumption'
 import { FUEL_LABELS } from '#shared/fuel'
+import { today } from '#shared/dates'
+import { savingsSummary } from '#shared/savings'
 
 const title = 'Carnet d\'entretien et consommation de ta voiture, gratuit'
 const description = 'Suis tes pleins et ta consommation réelle, reçois tes rappels d\'entretien et trouve le carburant le moins cher autour de toi. Gratuit et sans compte.'
@@ -36,6 +38,8 @@ const statuses = useReminderStatuses(vehicle)
 const segments = computed(() => consumptionSegments(fillUps.value))
 const stats = computed(() => fuelStats(fillUps.value))
 const due = computed(() => statuses.value.filter(({ status }) => status.level !== 'ok'))
+const savings = computed(() => savingsSummary(fillUps.value))
+const yearSavings = computed(() => savingsSummary(fillUps.value, `${today().slice(0, 4)}-01-01`))
 </script>
 
 <template>
@@ -177,6 +181,25 @@ const due = computed(() => statuses.value.filter(({ status }) => status.level !=
         </div>
       </div>
     </section>
+
+    <section v-if="savings.count" class="card" aria-label="Économies">
+      <div class="row">
+        <h2 style="margin: 0">
+          💰 {{ savings.total >= 0 ? 'Économisé' : 'Surcoût' }} : {{ formatEuro(Math.abs(savings.total)) }}
+        </h2>
+        <span v-if="yearSavings.count && yearSavings.count < savings.count" class="muted small">
+          {{ formatEuro(yearSavings.total) }} cette année
+        </span>
+      </div>
+      <p class="muted small" style="margin: 0">
+        Par rapport au prix moyen autour de la station, sur {{ savings.count }} plein{{ savings.count > 1 ? 's' : '' }} ·
+        {{ savings.belowAverage }} payé{{ savings.belowAverage > 1 ? 's' : '' }} sous la moyenne.
+        <NuxtLink to="/carburant">Trouver moins cher</NuxtLink>
+      </p>
+    </section>
+    <p v-else-if="fillUps.length" class="muted small" style="margin: 0">
+      💰 Choisis la station quand tu ajoutes un plein : Titine te dira combien tu as économisé par rapport aux prix du coin.
+    </p>
 
     <section class="card">
       <h2>Consommation par plein</h2>
